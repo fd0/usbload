@@ -287,7 +287,6 @@ int main(void)
         /* init led pins */
         DDRB = _BV(PB1) | _BV(PB2);
         PORTB = _BV(PB2);
-        // while(1);
 
         /* move interrupts to boot section */
         MCUCR = (1 << IVCE);
