@@ -28,6 +28,10 @@ ifeq ($(MCU),atmega168)
 	# atmega168 with 1024 words bootloader:
 	# bootloader section starts at 0x1c00 (word-address) == 0x3800 (byte-address)
 	BOOT_SECTION_START = 0x3800
+#else ifeq ($(MCU),atmega88)
+#	# atmega88 with 1024 words bootloader:
+#	# bootloader section starts at 0xc00 (word-address) == 0x1800 (byte-address)
+#	BOOT_SECTION_START = 0x1800
 endif
 
 LDFLAGS += -Wl,--section-start=.text=$(BOOT_SECTION_START)
@@ -49,40 +53,43 @@ $(TARGET): $(OBJECTS) $(TARGET).o
 
 %.o: $(HEADERS)
 
-.PHONY: install
+.PHONY: install lock
 
 # install: program-serial-$(TARGET) program-serial-eeprom-$(TARGET)
 install: program-isp-$(TARGET)
 
-.PHONY: clean clean-$(TARGET) clean-uploadtest
+lock:
+	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U lock:w:0x2f:m
 
-clean: clean-$(TARGET)
+.PHONY: clean clean-$(TARGET) clean-uploadtest clean-test
+
+clean: clean-$(TARGET) clean-uploadtest clean-test
 
 clean-$(TARGET):
 	$(RM) $(TARGET) $(OBJECTS)
 
-clean-bootloader:
-	$(MAKE) -C bootloader clean
-
 clean-uploadtest:
 	rm -f datatestfile{512,14k}.raw
 
-.PHONY: depend
+clean-test:
+	$(MAKE) -C test clean
+
+.PHONY: depend test uploadtest
 
 depend:
 	$(CC) $(CFLAGS) -M $(CDEFS) $(CINCS) $(SRC) $(ASRC) >> $(MAKEFILE).dep
 
 datatestfile14k.raw:
-	dd if=/dev/urandom of=datatestfile14k.raw bs=1 count=$((1024*14))
+	dd if=/dev/urandom of=datatestfile14k.raw bs=1 count=14336
 
 datatestfile512.raw:
 	dd if=/dev/urandom of=datatestfile512.raw bs=1 count=512
 
+test/test.hex:
+	$(MAKE) -C test test.hex
+
 uploadtest: datatestfile14k.raw datatestfile512.raw
-	$(AVRDUDE) -p $(AVRDUDE_MCU) -c usbasp -P usb -U flash:w:datatestfile14k.raw
-	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U flash:v:datatestfile14k.raw
-	sleep 2
-	$(AVRDUDE) -p $(AVRDUDE_MCU) -c usbasp -P usb -U eeprom:w:datatestfile512.raw
-	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U eeprom:v:datatestfile512.raw
+	$(AVRDUDE) -p $(AVRDUDE_MCU) -c usbasp -P usb -U flash:w:datatestfile14k.raw -U eeprom:w:datatestfile512.raw
+	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U flash:v:datatestfile14k.raw -U eeprom:v:datatestfile512.raw
 
 -include $(MAKEFILE).dep

@@ -72,12 +72,9 @@ static const uint8_t signature[4] = {
 #endif
 };
 
-/* global variables */
-enum {
-    STATE_IDLE = 0,
-    STATE_LEAVE,
-} state;
-
+#ifndef BOOT_SECTION_START
+#   error "BOOT_SECTION_START undefined!"
+#endif
 
 #ifdef DEBUG_UART
 static __attribute__ (( __noinline__ )) void putc(uint8_t data) {
@@ -87,6 +84,12 @@ static __attribute__ (( __noinline__ )) void putc(uint8_t data) {
 #else
 #define putc(x)
 #endif
+
+/* prototypes */
+void __attribute__ (( __noreturn__, __noinline__ )) leave_bootloader(void);
+
+/* default ISR */
+// ISR(__vector_default){}
 
 /* we just support flash sizes <= 64kb, for code size reasons
  * if you need to program bigger devices, have a look at USBasploader:
@@ -211,7 +214,7 @@ uchar usbFunctionWrite(uchar *data, uchar len)
             data += 2;
 
             /* write page if page boundary is crossed or this is the last page */
-            if ( flash_address % SPM_PAGESIZE == 0) {
+            if ( flash_address % SPM_PAGESIZE == 0 || bytes_remaining == 0) {
                 cli();
                 boot_page_write(flash_address-2);
                 sei();
@@ -244,6 +247,24 @@ uchar usbFunctionRead(uchar *data, uchar len)
     return len;
 }
 
+void leave_bootloader(void) {
+
+    /* move interrupts to application section */
+    cli();
+    MCUCR = (1 << IVCE);
+    MCUCR = 0;
+
+    /* reconfigure pins */
+    DDRB = 0;
+    PORTB = 0;
+    DDRD = 0;
+    PORTD = 0;
+    PORTC = 0;
+
+    /* start main program at address 0 */
+    asm volatile ("jmp 0");
+}
+
 int main(void)
 {
     /* start bootloader */
@@ -251,6 +272,10 @@ int main(void)
     /* init led pins */
     DDRB = _BV(PB1) | _BV(PB2);
     PORTB = _BV(PB2);
+
+    /* enable pullups for buttons */
+    DDRC = 0;
+    PORTC = _BV(PC2) | _BV(PC3) | _BV(PC4) | _BV(PC5);
 
 #ifdef DEBUG_UART
     /* init uart */
@@ -260,44 +285,36 @@ int main(void)
     putc('b');
 #endif
 
-    /* move interrupts to boot section */
-    MCUCR = (1 << IVCE);
-    MCUCR = (1 << IVSEL);
+    /* test if btn3 and btn4 are pressed */
+    if ((PINC & (_BV(PC2) | _BV(PC3))) == 0 ) {
+        /* move interrupts to boot section */
+        MCUCR = (1 << IVCE);
+        MCUCR = (1 << IVSEL);
 
-    /* enable interrupts */
-    sei();
+        /* enable interrupts */
+        sei();
 
-    /* initialize usb pins */
-    usbInit();
+        /* initialize usb pins */
+        usbInit();
 
-    /* disconnect for ~500ms, so that the host re-enumerates this device */
-    usbDeviceDisconnect();
-    for (uint8_t i = 0; i < 31; i++)
-        _delay_loop_2(0); /* 0 means 0x10000, 31*1/f*0x10000 =~ 508ms */
-    usbDeviceConnect();
+        /* disconnect for ~500ms, so that the host re-enumerates this device */
+        usbDeviceDisconnect();
+        for (uint8_t i = 0; i < 31; i++)
+            _delay_loop_2(0); /* 0 means 0x10000, 31*1/f*0x10000 =~ 508ms */
+        usbDeviceConnect();
 
-    uint16_t delay;
-    while(state != STATE_LEAVE) {
-        usbPoll();
-        delay++;
+        uint16_t delay;
+        while(1) {
+            usbPoll();
+            delay++;
 
-        if (delay == 0)
-            PORTB ^= _BV(PB1);
+            if (delay == 0)
+                PORTB ^= _BV(PB1);
+
+            if ((PINC & _BV(PC5)) == 0)
+                break;
+        }
     }
 
-    /* leave bootloader */
-
-    /* disable interrupts */
-    cli();
-
-    /* move interrupts to application section */
-    MCUCR = (1 << IVCE);
-    MCUCR = 0;
-
-    /* reconfigure pins */
-    DDRB = 0;
-    PORTB = 0;
-    DDRD = 0;
-    PORTD = 0;
-
+    leave_bootloader();
 }
