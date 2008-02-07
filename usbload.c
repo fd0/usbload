@@ -1,5 +1,5 @@
-/* USBasp compatible bootloader
- * (c) by Alexander Neumann <alexander@lochraster.org>
+/* simple USBasp compatible bootloader
+ *   by Alexander Neumann <alexander@lochraster.org>
  *
  * inspired by USBasploader by Christian Starkjohann,
  * see http://www.obdev.at/products/avrusb/usbasploader.html
@@ -79,21 +79,30 @@ enum {
 } state;
 
 
-/* use 16 or 32 bit counter, according to the flash page count of the target device */
-#if BOOT_SECTION_START <= 65535
-#   define FLASH_ADDR_T uint16_t
+#ifdef DEBUG_UART
+static __attribute__ (( __noinline__ )) void putc(uint8_t data) {
+    while(!(UCSR0A & _BV(UDRE0)));
+    UDR0 = data;
+}
 #else
-#   define FLASH_ADDR_T uint32_t
+#define putc(x)
 #endif
+
+/* we just support flash sizes <= 64kb, for code size reasons */
+#if FLASHEND > 0xffff
+#   error "usbload only supports up to 64kb of flash!
+#endif
+
+/* start flash (byte address) read/write at this address */
+uint16_t flash_address;
+uint8_t bytes_remaining;
+uint8_t request;
 
 uchar   usbFunctionSetup(uchar data[8])
 {
     usbRequest_t *req = (void *)data;
     uint8_t len = 0;
     static uint8_t buf[4];
-
-    /* start flash (byte address, converted) write at this address */
-    FLASH_ADDR_T flash_address;
 
     /* set global data pointer to local buffer */
     usbMsgPtr = buf;
@@ -103,12 +112,14 @@ uchar   usbFunctionSetup(uchar data[8])
         buf[0] = 0;
         len = 1;
 
+#if 0
     } else if (req->bRequest == USBASP_FUNC_CONNECT) {
         /* turn on led */
         PORTB &= ~_BV(PB1);
     } else if (req->bRequest == USBASP_FUNC_DISCONNECT) {
         /* turn off led */
         PORTB |= _BV(PB1);
+#endif
     /* catch query for the devicecode, chip erase and eeprom byte requests */
     } else if (req->bRequest == USBASP_FUNC_TRANSMIT) {
 
@@ -127,6 +138,7 @@ uchar   usbFunctionSetup(uchar data[8])
              * bits 0 and 1 of byte 3 determine the signature byte address */
             buf[3] = signature[data[4] & 0x03];
 
+#if 0
         /* catch eeprom read */
         } else if (data[2] == ISP_READ_EEPROM) {
 
@@ -138,21 +150,43 @@ uchar   usbFunctionSetup(uchar data[8])
             /* address is in data[4], data[3], and databyte is in data[5] */
             eeprom_write_byte((uint8_t *)address.word, data[5]);
 
+#endif
+
         /* catch a chip erase */
         } else if (data[2] == ISP_CHIP_ERASE1 && data[3] == ISP_CHIP_ERASE2) {
             for (flash_address = 0;
                  flash_address < BOOT_SECTION_START;
-                 flash_address += SPM_PAGESIZE)
-                boot_page_erase_safe(flash_address);
+                 flash_address += SPM_PAGESIZE) {
+
+                /* wait and erase page */
+                boot_spm_busy_wait();
+                cli();
+                boot_page_erase(flash_address);
+                sei();
+            }
         }
 
         /* in case no data has been filled in by the if's above, just return zeroes */
         len = 4;
 
+#if 0
     } else if (req->bRequest == FUNC_ECHO) {
         buf[0] = req->wValue.bytes[0];
         buf[1] = req->wValue.bytes[1];
         len = 2;
+#endif
+    } else if (req->bRequest >= USBASP_FUNC_READFLASH) {
+        /* && req->bRequest <= USBASP_FUNC_SETLONGADDRESS */
+
+        putc('R');
+        putc(req->bRequest);
+
+        /* extract address and length */
+        flash_address = req->wValue.word;
+        bytes_remaining = req->wLength.bytes[0];
+        request = req->bRequest;
+        /* hand control over to usbFunctionRead()/usbFunctionWrite() */
+        len = 0xff;
     }
 
     return len;
@@ -160,93 +194,80 @@ uchar   usbFunctionSetup(uchar data[8])
 
 uchar usbFunctionWrite(uchar *data, uchar len)
 {
-#if 0
-uchar   isLastWrite;
+    if (len > bytes_remaining)
+        len = bytes_remaining;
+    bytes_remaining -= len;
 
-    DBG1(0x31, (void *)&currentAddress.l, 4);
-    if(len > bytesRemaining)
-        len = bytesRemaining;
-    bytesRemaining -= len;
-    isLastWrite = bytesRemaining == 0;
-    if(currentRequest >= USBASP_FUNC_READEEPROM){
-        eeprom_write_block(data, (void *)currentAddress.w[0], len);
-        currentAddress.w[0] += len;
-    }else{
-        char i = len;
-        while(i > 0){
-            i -= 2;
-            if((currentAddress.w[0] & (SPM_PAGESIZE - 1)) == 0){    /* if page start: erase */
-                DBG1(0x33, 0, 0);
-#ifndef NO_FLASH_WRITE
-                cli();
-                boot_page_erase(CURRENT_ADDRESS);   /* erase page */
-                sei();
-                boot_spm_busy_wait();               /* wait until page is erased */
+    if (request == USBASP_FUNC_WRITEEEPROM) {
+#if 1
+        for (uint8_t i = 0; i < len; i++)
+            eeprom_write_byte((uint8_t *)flash_address++, *data++);
 #endif
-            }
-            DBG1(0x32, 0, 0);
+    } else {
+#if 1
+        for (uint8_t i = 0; i < len/2; i++) {
+            uint16_t *w = (uint16_t *)data;
             cli();
-            boot_page_fill(CURRENT_ADDRESS, *(short *)data);
+            boot_page_fill(flash_address, *w);
             sei();
-            CURRENT_ADDRESS += 2;
+
+            flash_address += 2;
             data += 2;
-            /* write page when we cross page boundary or we have the last partial page */
-            if((currentAddress.w[0] & (SPM_PAGESIZE - 1)) == 0 || (i <= 0 && isLastWrite && isLastPage)){
-                DBG1(0x34, 0, 0);
-#ifndef NO_FLASH_WRITE
+
+            /* write page if page boundary is crossed or this is the last page */
+            if ( flash_address % SPM_PAGESIZE == 0) {
                 cli();
-                boot_page_write(CURRENT_ADDRESS - 2);
+                boot_page_write(flash_address-2);
                 sei();
                 boot_spm_busy_wait();
                 cli();
                 boot_rww_enable();
                 sei();
-#endif
             }
         }
-        DBG1(0x35, (void *)&currentAddress.l, 4);
-    }
-    return isLastWrite;
 #endif
+    }
+
+    return (bytes_remaining == 0);
 }
 
 uchar usbFunctionRead(uchar *data, uchar len)
 {
-#if 0
-    if(len > bytesRemaining)
-        len = bytesRemaining;
-    bytesRemaining -= len;
-    if(currentRequest >= USBASP_FUNC_READEEPROM){
-        eeprom_read_block(data, (void *)currentAddress.w[0], len);
-    }else{
-        memcpy_P(data, (PGM_VOID_P)CURRENT_ADDRESS, len);
+    if(len > bytes_remaining)
+        len = bytes_remaining;
+    bytes_remaining -= len;
+
+    for (uint8_t i = 0; i < len; i++) {
+        if(request == USBASP_FUNC_READEEPROM)
+            *data = eeprom_read_byte((void *)flash_address);
+        else
+            *data = pgm_read_byte_near((void *)flash_address);
+        data++;
+        flash_address++;
     }
-    CURRENT_ADDRESS += len;
+
     return len;
-#endif
 }
 
-ISR(TIMER1_COMPA_vect) {
-    PORTB ^= _BV(PB2);
-}
-
-
-int main(void) {
-
+int main(void)
+{
     /* start bootloader */
 
     /* init led pins */
     DDRB = _BV(PB1) | _BV(PB2);
-    PORTB = _BV(PB1) | _BV(PB2);
+    // PORTB = _BV(PB1) | _BV(PB2);
+
+#ifdef DEBUG_UART
+    /* init uart */
+    UBRR0L = 8;
+    UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
+    UCSR0B = _BV(TXEN0);
+    putc('b');
+#endif
 
     /* move interrupts to boot section */
     MCUCR = (1 << IVCE);
     MCUCR = (1 << IVSEL);
-
-    /* init timer1 for blinking a led while in bootloader */
-    TCCR1B = _BV(WGM12) | _BV(CS12) | _BV(CS10);
-    OCR1A = F_CPU/1024;
-    TIMSK1 = _BV(OCIE1A);
 
     /* enable interrupts */
     sei();
@@ -260,8 +281,13 @@ int main(void) {
         _delay_loop_2(0); /* 0 means 0x10000, 31*1/f*0x10000 =~ 508ms */
     usbDeviceConnect();
 
+    uint16_t delay;
     while(state != STATE_LEAVE) {
         usbPoll();
+        delay++;
+
+        if (delay == 0)
+            PORTB ^= _BV(PB2);
     }
 
     /* leave bootloader */
@@ -273,14 +299,10 @@ int main(void) {
     MCUCR = (1 << IVCE);
     MCUCR = 0;
 
-    /* reconfigure pins and timer */
+    /* reconfigure pins */
     DDRB = 0;
     PORTB = 0;
     DDRD = 0;
     PORTD = 0;
-    TCCR1B = 0;
-    TCNT1 = 0;
-    OCR1A = 0;
-    TIMSK1 = 0;
 
 }

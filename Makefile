@@ -54,7 +54,7 @@ $(TARGET): $(OBJECTS) $(TARGET).o
 # install: program-serial-$(TARGET) program-serial-eeprom-$(TARGET)
 install: program-isp-$(TARGET)
 
-.PHONY: clean clean-$(TARGET) clean-botloader
+.PHONY: clean clean-$(TARGET) clean-uploadtest
 
 clean: clean-$(TARGET)
 
@@ -64,9 +64,25 @@ clean-$(TARGET):
 clean-bootloader:
 	$(MAKE) -C bootloader clean
 
+clean-uploadtest:
+	rm -f datatestfile{512,14k}.raw
+
 .PHONY: depend
 
 depend:
 	$(CC) $(CFLAGS) -M $(CDEFS) $(CINCS) $(SRC) $(ASRC) >> $(MAKEFILE).dep
+
+datatestfile14k.raw:
+	dd if=/dev/urandom of=datatestfile14k.raw bs=1 count=$((1024*14))
+
+datatestfile512.raw:
+	dd if=/dev/urandom of=datatestfile512.raw bs=1 count=512
+
+uploadtest: datatestfile14k.raw datatestfile512.raw
+	$(AVRDUDE) -p $(AVRDUDE_MCU) -c usbasp -P usb -U flash:w:datatestfile14k.raw
+	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U flash:v:datatestfile14k.raw
+	sleep 2
+	$(AVRDUDE) -p $(AVRDUDE_MCU) -c usbasp -P usb -U eeprom:w:datatestfile512.raw
+	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U eeprom:v:datatestfile512.raw
 
 -include $(MAKEFILE).dep
