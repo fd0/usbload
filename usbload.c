@@ -88,7 +88,9 @@ static __attribute__ (( __noinline__ )) void putc(uint8_t data) {
 #define putc(x)
 #endif
 
-/* we just support flash sizes <= 64kb, for code size reasons */
+/* we just support flash sizes <= 64kb, for code size reasons
+ * if you need to program bigger devices, have a look at USBasploader:
+ * http://www.obdev.at/products/avrusb/usbasploader.html */
 #if FLASHEND > 0xffff
 #   error "usbload only supports up to 64kb of flash!
 #endif
@@ -112,14 +114,12 @@ uchar   usbFunctionSetup(uchar data[8])
         buf[0] = 0;
         len = 1;
 
-#if 0
     } else if (req->bRequest == USBASP_FUNC_CONNECT) {
         /* turn on led */
-        PORTB &= ~_BV(PB1);
+        PORTB &= ~_BV(PB2);
     } else if (req->bRequest == USBASP_FUNC_DISCONNECT) {
         /* turn off led */
-        PORTB |= _BV(PB1);
-#endif
+        PORTB |= _BV(PB2);
     /* catch query for the devicecode, chip erase and eeprom byte requests */
     } else if (req->bRequest == USBASP_FUNC_TRANSMIT) {
 
@@ -138,7 +138,7 @@ uchar   usbFunctionSetup(uchar data[8])
              * bits 0 and 1 of byte 3 determine the signature byte address */
             buf[3] = signature[data[4] & 0x03];
 
-#if 0
+#ifdef CATCH_EEPROM_ISP
         /* catch eeprom read */
         } else if (data[2] == ISP_READ_EEPROM) {
 
@@ -169,12 +169,11 @@ uchar   usbFunctionSetup(uchar data[8])
         /* in case no data has been filled in by the if's above, just return zeroes */
         len = 4;
 
-#if 0
+    /* implement a simple echo function, for testing the usb connectivity */
     } else if (req->bRequest == FUNC_ECHO) {
         buf[0] = req->wValue.bytes[0];
         buf[1] = req->wValue.bytes[1];
         len = 2;
-#endif
     } else if (req->bRequest >= USBASP_FUNC_READFLASH) {
         /* && req->bRequest <= USBASP_FUNC_SETLONGADDRESS */
 
@@ -199,12 +198,9 @@ uchar usbFunctionWrite(uchar *data, uchar len)
     bytes_remaining -= len;
 
     if (request == USBASP_FUNC_WRITEEEPROM) {
-#if 1
         for (uint8_t i = 0; i < len; i++)
             eeprom_write_byte((uint8_t *)flash_address++, *data++);
-#endif
     } else {
-#if 1
         for (uint8_t i = 0; i < len/2; i++) {
             uint16_t *w = (uint16_t *)data;
             cli();
@@ -225,7 +221,6 @@ uchar usbFunctionWrite(uchar *data, uchar len)
                 sei();
             }
         }
-#endif
     }
 
     return (bytes_remaining == 0);
@@ -255,7 +250,7 @@ int main(void)
 
     /* init led pins */
     DDRB = _BV(PB1) | _BV(PB2);
-    // PORTB = _BV(PB1) | _BV(PB2);
+    PORTB = _BV(PB2);
 
 #ifdef DEBUG_UART
     /* init uart */
@@ -287,7 +282,7 @@ int main(void)
         delay++;
 
         if (delay == 0)
-            PORTB ^= _BV(PB2);
+            PORTB ^= _BV(PB1);
     }
 
     /* leave bootloader */
