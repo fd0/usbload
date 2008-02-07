@@ -247,7 +247,8 @@ uchar usbFunctionRead(uchar *data, uchar len)
     return len;
 }
 
-void leave_bootloader(void) {
+void leave_bootloader(void)
+{
 
     /* move interrupts to application section */
     cli();
@@ -269,10 +270,6 @@ int main(void)
 {
     /* start bootloader */
 
-    /* init led pins */
-    DDRB = _BV(PB1) | _BV(PB2);
-    PORTB = _BV(PB2);
-
     /* enable pullups for buttons */
     DDRC = 0;
     PORTC = _BV(PC2) | _BV(PC3) | _BV(PC4) | _BV(PC5);
@@ -286,7 +283,12 @@ int main(void)
 #endif
 
     /* test if btn3 and btn4 are pressed */
-    if ((PINC & (_BV(PC2) | _BV(PC3))) == 0 ) {
+    if ((PINC & (_BV(PC2) | _BV(PC3) | _BV(PC4) | _BV(PC5))) == 0 ) {
+        /* init led pins */
+        DDRB = _BV(PB1) | _BV(PB2);
+        PORTB = _BV(PB2);
+        // while(1);
+
         /* move interrupts to boot section */
         MCUCR = (1 << IVCE);
         MCUCR = (1 << IVSEL);

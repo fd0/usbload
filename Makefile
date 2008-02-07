@@ -5,7 +5,7 @@ F_CPU = 16000000UL
 MCU = atmega168
 
 SRC = usbload.c
-ASRC = usbdrv/usbdrvasm.S
+ASRC = usbdrv/usbdrvasm.S interrupts.S
 OBJECTS += $(patsubst %.c,%.o,${SRC})
 OBJECTS += $(patsubst %.S,%.o,${ASRC})
 HEADERS += $(shell echo *.h)
@@ -15,6 +15,9 @@ CFLAGS += -Iusbdrv -I.
 CFLAGS += -DHARDWARE_REV=$(HARDWARE_REV)
 ASFLAGS += -x assembler-with-cpp
 ASFLAGS += -Iusbdrv -I.
+
+# use own linkerscript, for special interrupt table handling
+LDFLAGS += -T ./ldscripts/avr5.x
 
 # no safe mode checks
 AVRDUDE_FLAGS += -u
@@ -28,10 +31,10 @@ ifeq ($(MCU),atmega168)
 	# atmega168 with 1024 words bootloader:
 	# bootloader section starts at 0x1c00 (word-address) == 0x3800 (byte-address)
 	BOOT_SECTION_START = 0x3800
-#else ifeq ($(MCU),atmega88)
-#	# atmega88 with 1024 words bootloader:
-#	# bootloader section starts at 0xc00 (word-address) == 0x1800 (byte-address)
-#	BOOT_SECTION_START = 0x1800
+else ifeq ($(MCU),atmega88)
+	# atmega88 with 1024 words bootloader:
+	# bootloader section starts at 0xc00 (word-address) == 0x1800 (byte-address)
+	BOOT_SECTION_START = 0x1800
 endif
 
 LDFLAGS += -Wl,--section-start=.text=$(BOOT_SECTION_START)
