@@ -191,3 +191,10 @@ Scroll down to the bottom to see the most recent changes.
     USB descriptors.
 
 * Release 2008-01-21
+
+  - Fixed bug in 15 and 16 MHz module where the new address set with
+    SET_ADDRESS was already accepted at the next NAK or ACK we send, not at
+    the next data packet we send. This caused problems when the host polled
+    too fast.
+
+* Release 2008-02-05

@@ -311,7 +311,7 @@ didStuff7:
     cbr     x1, USBMASK     ;[5] prepare SE0 [spec says EOP may be 21 to 25 cycles]
     lds     x2, usbNewDeviceAddr;[6]
     lsl     x2              ;[8] we compare with left shifted address
-    subi    YL, 20 + 2      ;[9]
+    subi    YL, 20 + 2      ;[9] Only assign address on data packets, not ACK/NAK in x3
     sbci    YH, 0           ;[10]
     out     USBOUT, x1      ;[11] <-- out SE0 -- from now 2 bits = 22 cycles until bus idle
 ;2006-03-06: moved transfer of new address to usbDeviceAddr from C-Code to asm:

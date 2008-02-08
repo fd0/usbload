@@ -423,7 +423,7 @@ didStuff7:
     out     USBOUT, x1      ;[11] <-- out SE0 -- from now 2 bits = 22 cycles until bus idle
 ;2006-03-06: moved transfer of new address to usbDeviceAddr from C-Code to asm:
 ;set address only after data packet was sent, not after handshake
-    subi    YL, 2           ;[0]
+    subi    YL, 2           ;[0] Only assign address on data packets, not ACK/NAK in r0
     sbci    YH, 0           ;[1]
     breq    skipAddrAssign  ;[2]
     sts     usbDeviceAddr, x2; if not skipped: SE0 is one cycle longer

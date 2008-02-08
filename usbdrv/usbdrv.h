@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2005 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: usbdrv.h 467 2008-01-21 17:23:58Z cs $
+ * This Revision: $Id: usbdrv.h 488 2008-02-05 18:26:08Z cs $
  */
 
 #ifndef __usbdrv_h_included__
@@ -19,13 +19,16 @@ Hardware Prerequisites:
 USB lines D+ and D- MUST be wired to the same I/O port. We recommend that D+
 triggers the interrupt (best achieved by using INT0 for D+), but it is also
 possible to trigger the interrupt from D-. If D- is used, interrupts are also
-triggered by SOF packets. D- requires a pullup of 1.5k to +3.5V (and the device
-must be powered at 3.5V) to identify as low-speed USB device. A pullup of
-1M SHOULD be connected from D+ to +3.5V to prevent interference when no USB
-master is connected. We use D+ as interrupt source and not D- because it
-does not trigger on keep-alive and RESET states.
+triggered by SOF packets. D- requires a pull-up of 1.5k to +3.5V (and the
+device must be powered at 3.5V) to identify as low-speed USB device. A
+pull-down or pull-up of 1M SHOULD be connected from D+ to +3.5V to prevent
+interference when no USB master is connected. If you use Zener diodes to limit
+the voltage on D+ and D-, you MUST use a pull-down resistor, not a pull-up.
+We use D+ as interrupt source and not D- because it does not trigger on
+keep-alive and RESET states. If you want to count keep-alive events with
+USB_COUNT_SOF, you MUST use D- as an interrupt source.
 
-As a compile time option, the 1.5k pullup resistor on D- can be made
+As a compile time option, the 1.5k pull-up resistor on D- can be made
 switchable to allow the device to disconnect at will. See the definition of
 usbDeviceConnect() and usbDeviceDisconnect() further down in this file.
 
@@ -95,8 +98,9 @@ activity.
 Operation without an USB master:
 The driver behaves neutral without connection to an USB master if D- reads
 as 1. To avoid spurious interrupts, we recommend a high impedance (e.g. 1M)
-pullup resistor on D+ (interrupt). If D- becomes statically 0, the driver may
-block in the interrupt routine.
+pull-down or pull-up resistor on D+ (interrupt). If Zener diodes are used,
+use a pull-down. If D- becomes statically 0, the driver may block in the
+interrupt routine.
 
 Interrupt latency:
 The application must ensure that the USB interrupt is not disabled for more
@@ -118,7 +122,7 @@ USB messages, even if they address another (low-speed) device on the same bus.
 /* --------------------------- Module Interface ---------------------------- */
 /* ------------------------------------------------------------------------- */
 
-#define USBDRV_VERSION  20080121
+#define USBDRV_VERSION  20080205
 /* This define uniquely identifies a driver version. It is a decimal number
  * constructed from the driver's release date in the form YYYYMMDD. If the
  * driver's behavior or interface changes, you can use this constant to
@@ -286,6 +290,11 @@ USB_PUBLIC void usbFunctionWriteOut(uchar *data, uchar len);
  * in usbconfig.h, a disconnect consists of removing the pull-up resisitor
  * from D-, otherwise the disconnect is done by brute-force pulling D- to GND.
  * This does not conform to the spec, but it works.
+ * Please note that the USB interrupt must be disabled while the device is
+ * in disconnected state, or the interrupt handler will hang! You can either
+ * turn off the USB interrupt selectively with
+ *     USB_INTR_ENABLE &= ~(1 << USB_INTR_ENABLE_BIT)
+ * or use cli() to disable interrupts globally.
  */
 extern unsigned usbCrc16(unsigned data, uchar len);
 #define usbCrc16(data, len) usbCrc16((unsigned)(data), len)

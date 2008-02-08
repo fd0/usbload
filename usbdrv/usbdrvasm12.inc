@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2007 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: usbdrvasm12.inc 464 2007-12-26 21:15:04Z cs $
+ * This Revision: $Id: usbdrvasm12.inc 483 2008-02-05 15:05:32Z cs $
  */
 
 /* Do not link this file! Link usbdrvasm.S instead, which includes the
@@ -393,32 +393,31 @@ didStuff7:
     pop     x4              ;2 [63]
 ;brackets are cycles from start of SE0 now
     out     USBOUT, x1      ;1 [0] <-- out SE0 -- from now 2 bits = 16 cycles until bus idle
-    nop                     ;1 [1]
 ;2006-03-06: moved transfer of new address to usbDeviceAddr from C-Code to asm:
 ;set address only after data packet was sent, not after handshake
-    lds     x2, usbNewDeviceAddr;2 [3]
-    lsl     x2;             ;1 [4] we compare with left shifted address
-    subi    YL, 20 + 2      ;1 [5]
-    sbci    YH, 0           ;1 [6]
-    breq    skipAddrAssign  ;2 [8]
-    sts     usbDeviceAddr, x2;0  if not skipped: SE0 is one cycle longer
+    lds     x2, usbNewDeviceAddr;2 [2]
+    lsl     x2;             ;1 [3] we compare with left shifted address
+    subi    YL, 20 + 2      ;1 [4] Only assign address on data packets, not ACK/NAK in x3
+    sbci    YH, 0           ;1 [5]
+    breq    skipAddrAssign  ;2 [7]
+    sts     usbDeviceAddr, x2; if not skipped: SE0 is one cycle longer
 skipAddrAssign:
 ;end of usbDeviceAddress transfer
-    ldi     x2, 1<<USB_INTR_PENDING_BIT;1 [9] int0 occurred during TX -- clear pending flag
-    USB_STORE_PENDING(x2)   ;1 [10]
-    ori     x1, USBIDLE     ;1 [11]
-    in      x2, USBDDR      ;1 [12]
-    cbr     x2, USBMASK     ;1 [13] set both pins to input
-    mov     x3, x1          ;1 [14]
-    cbr     x3, USBMASK     ;1 [15] configure no pullup on both pins
-    out     USBOUT, x1      ;1 [16] <-- out J (idle) -- end of SE0 (EOP signal)
-    out     USBDDR, x2      ;1 [17] <-- release bus now
-    out     USBOUT, x3      ;1 [18] <-- ensure no pull-up resistors are active
+    ldi     x2, 1<<USB_INTR_PENDING_BIT;1 [8] int0 occurred during TX -- clear pending flag
+    USB_STORE_PENDING(x2)   ;1 [9]
+    ori     x1, USBIDLE     ;1 [10]
+    in      x2, USBDDR      ;1 [11]
+    cbr     x2, USBMASK     ;1 [12] set both pins to input
+    mov     x3, x1          ;1 [13]
+    cbr     x3, USBMASK     ;1 [14] configure no pullup on both pins
+    out     USBOUT, x1      ;1 [15] <-- out J (idle) -- end of SE0 (EOP signal)
+    out     USBDDR, x2      ;1 [16] <-- release bus now
+    out     USBOUT, x3      ;1 [17] <-- ensure no pull-up resistors are active
     rjmp    doReturn
 
 bitstuff5:                  ;1 (for branch taken)
     eor     x1, x4          ;1
-    rjmp    didStuff5       ;2 same trick as above...
+    rjmp    didStuff5       ;2 same trick as in bitstuff1...
 bitstuff6:                  ;1 (for branch taken)
     eor     x1, x4          ;1
     rjmp    didStuff6       ;2 same trick as above...
