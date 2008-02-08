@@ -141,7 +141,7 @@ uchar   usbFunctionSetup(uchar data[8])
              * bits 0 and 1 of byte 3 determine the signature byte address */
             buf[3] = signature[data[4] & 0x03];
 
-#ifdef CATCH_EEPROM_ISP
+#ifndef DISABLE_CATCH_EEPROM_ISP
         /* catch eeprom read */
         } else if (data[2] == ISP_READ_EEPROM) {
 
@@ -152,7 +152,6 @@ uchar   usbFunctionSetup(uchar data[8])
 
             /* address is in data[4], data[3], and databyte is in data[5] */
             eeprom_write_byte((uint8_t *)address.word, data[5]);
-
 #endif
 
         /* catch a chip erase */
@@ -226,6 +225,9 @@ uchar usbFunctionWrite(uchar *data, uchar len)
         }
     }
 
+    /* flash led on activity */
+    PORTB ^= _BV(PB2);
+
     return (bytes_remaining == 0);
 }
 
@@ -244,6 +246,9 @@ uchar usbFunctionRead(uchar *data, uchar len)
         flash_address++;
     }
 
+    /* flash led on activity */
+    PORTB ^= _BV(PB2);
+
     return len;
 }
 
@@ -258,15 +263,15 @@ void leave_bootloader(void)
     /* disconnect usb */
     usbDeviceDisconnect();
 
+    /* reset usb interrupt configuration */
+    USB_INTR_CFG = 0;
+
     /* reconfigure pins */
     DDRB = 0;
     PORTB = 0;
     DDRD = 0;
     PORTD = 0;
     PORTC = 0;
-
-    /* reset usb interrupt configuration */
-    USB_INTR_CFG = 0;
 
     /* start main program at address 0 */
     asm volatile ("jmp 0");
@@ -288,39 +293,50 @@ int main(void)
     putc('b');
 #endif
 
-    /* test if btn3 and btn4 are pressed */
-    if ((PINC & (_BV(PC2) | _BV(PC3) | _BV(PC4) | _BV(PC5))) == 0 ) {
-        /* init led pins */
-        DDRB = _BV(PB1) | _BV(PB2);
-        PORTB = _BV(PB2);
+    /* wait for keypress, if reset vector is valid.  skip otherwise */
+    if (pgm_read_word((void *)0) != 0xffff) {
+        /* test if btn1 and btn4 are pressed for more than 1s */
+        for (uint8_t i = 0; i < 200; i++) {
 
-        /* move interrupts to boot section */
-        MCUCR = (1 << IVCE);
-        MCUCR = (1 << IVSEL);
+            /* if one button is release, jump to main application */
+            if ((PINC & (_BV(PC2) | _BV(PC5))) > 0)
+                leave_bootloader();
 
-        /* enable interrupts */
-        sei();
-
-        /* initialize usb pins */
-        usbInit();
-
-        /* disconnect for ~500ms, so that the host re-enumerates this device */
-        usbDeviceDisconnect();
-        for (uint8_t i = 0; i < 31; i++)
-            _delay_loop_2(0); /* 0 means 0x10000, 31*1/f*0x10000 =~ 508ms */
-        usbDeviceConnect();
-
-        uint16_t delay;
-        while(1) {
-            usbPoll();
-            delay++;
-
-            if (delay == 0)
-                PORTB ^= _BV(PB1);
-
-            if ((PINC & _BV(PC5)) == 0)
-                break;
+            _delay_loop_2(F_CPU/4/200); /* wait for 5ms, 200 times */
         }
+    }
+
+    /* init led pins */
+    DDRB = _BV(PB1) | _BV(PB2);
+    PORTB = _BV(PB2);
+
+    /* move interrupts to boot section */
+    MCUCR = (1 << IVCE);
+    MCUCR = (1 << IVSEL);
+
+    /* enable interrupts */
+    sei();
+
+    /* initialize usb pins */
+    usbInit();
+
+    /* disconnect for ~500ms, so that the host re-enumerates this device */
+    usbDeviceDisconnect();
+    for (uint8_t i = 0; i < 31; i++)
+        _delay_loop_2(0); /* 0 means 0x10000, 31*1/f*0x10000 =~ 508ms */
+    usbDeviceConnect();
+
+    uint16_t delay;
+    while(1) {
+        usbPoll();
+        delay++;
+
+        /* do some led blinking, so that it is visible that the bootloader is still running */
+        if (delay == 0)
+            PORTB ^= _BV(PB1);
+
+        if ((PINC & _BV(PC3)) == 0)
+            break;
     }
 
     leave_bootloader();
