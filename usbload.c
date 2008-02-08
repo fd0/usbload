@@ -255,12 +255,18 @@ void leave_bootloader(void)
     MCUCR = (1 << IVCE);
     MCUCR = 0;
 
+    /* disconnect usb */
+    usbDeviceDisconnect();
+
     /* reconfigure pins */
     DDRB = 0;
     PORTB = 0;
     DDRD = 0;
     PORTD = 0;
     PORTC = 0;
+
+    /* reset usb interrupt configuration */
+    USB_INTR_CFG = 0;
 
     /* start main program at address 0 */
     asm volatile ("jmp 0");
