@@ -87,7 +87,7 @@ clean-test:
 .PHONY: depend test uploadtest
 
 depend:
-	$(CC) $(CFLAGS) -M $(CDEFS) $(CINCS) $(SRC) $(ASRC) >> $(MAKEFILE).dep
+	$(CC) $(CFLAGS) -M $(CDEFS) $(CINCS) $(SRC) >> $(MAKEFILE).dep
 
 datatestfile14k.raw:
 	dd if=/dev/urandom of=datatestfile14k.raw bs=1 count=14336
