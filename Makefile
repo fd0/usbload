@@ -56,13 +56,20 @@ $(TARGET): $(OBJECTS) $(TARGET).o
 
 %.o: $(HEADERS)
 
-.PHONY: install lock
+.PHONY: install lock fuses-atmega168-unzap bootstrap
 
 # install: program-serial-$(TARGET) program-serial-eeprom-$(TARGET)
 install: program-isp-$(TARGET)
 
 lock:
 	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U lock:w:0x2f:m
+
+fuses-atmega168-unzap:
+	echo "sck 5" | $(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -F -u -t
+	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U lfuse:w:0xe7:m -U hfuse:w:0xd5:m -U efuse:w:0x00:m
+	echo "sck 0.2" | $(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -F -u -t
+
+bootstrap: fuses-atmega168-unzap install lock
 
 .PHONY: clean clean-$(TARGET) clean-uploadtest clean-test
 
