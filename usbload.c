@@ -99,7 +99,7 @@ void __attribute__ (( __noreturn__, __noinline__ )) leave_bootloader(void);
 #endif
 
 /* start flash (byte address) read/write at this address */
-uint16_t flash_address;
+usbWord_t flash_address;
 uint8_t bytes_remaining;
 uint8_t request;
 
@@ -156,14 +156,14 @@ uchar   usbFunctionSetup(uchar data[8])
 
         /* catch a chip erase */
         } else if (data[2] == ISP_CHIP_ERASE1 && data[3] == ISP_CHIP_ERASE2) {
-            for (flash_address = 0;
-                 flash_address < BOOT_SECTION_START;
-                 flash_address += SPM_PAGESIZE) {
+            for (flash_address.word = 0;
+                 flash_address.word < BOOT_SECTION_START;
+                 flash_address.word += SPM_PAGESIZE) {
 
                 /* wait and erase page */
                 boot_spm_busy_wait();
                 cli();
-                boot_page_erase(flash_address);
+                boot_page_erase(flash_address.word);
                 sei();
             }
         }
@@ -183,7 +183,7 @@ uchar   usbFunctionSetup(uchar data[8])
         putc(req->bRequest);
 
         /* extract address and length */
-        flash_address = req->wValue.word;
+        flash_address.word = req->wValue.word;
         bytes_remaining = req->wLength.bytes[0];
         request = req->bRequest;
         /* hand control over to usbFunctionRead()/usbFunctionWrite() */
@@ -201,21 +201,21 @@ uchar usbFunctionWrite(uchar *data, uchar len)
 
     if (request == USBASP_FUNC_WRITEEEPROM) {
         for (uint8_t i = 0; i < len; i++)
-            eeprom_write_byte((uint8_t *)flash_address++, *data++);
+            eeprom_write_byte((uint8_t *)flash_address.word++, *data++);
     } else {
         for (uint8_t i = 0; i < len/2; i++) {
             uint16_t *w = (uint16_t *)data;
             cli();
-            boot_page_fill(flash_address, *w);
+            boot_page_fill(flash_address.word, *w);
             sei();
 
-            flash_address += 2;
+            flash_address.word += 2;
             data += 2;
 
             /* write page if page boundary is crossed or this is the last page */
-            if ( flash_address % SPM_PAGESIZE == 0 || bytes_remaining == 0) {
+            if ( flash_address.bytes[0] % SPM_PAGESIZE == 0 || bytes_remaining == 0) {
                 cli();
-                boot_page_write(flash_address-2);
+                boot_page_write(flash_address.word-2);
                 sei();
                 boot_spm_busy_wait();
                 cli();
@@ -239,11 +239,11 @@ uchar usbFunctionRead(uchar *data, uchar len)
 
     for (uint8_t i = 0; i < len; i++) {
         if(request == USBASP_FUNC_READEEPROM)
-            *data = eeprom_read_byte((void *)flash_address);
+            *data = eeprom_read_byte((void *)flash_address.word);
         else
-            *data = pgm_read_byte_near((void *)flash_address);
+            *data = pgm_read_byte_near((void *)flash_address.word);
         data++;
-        flash_address++;
+        flash_address.word++;
     }
 
     /* flash led on activity */
