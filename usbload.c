@@ -98,6 +98,13 @@ void __attribute__ (( __noreturn__, __noinline__ )) leave_bootloader(void);
 #   error "usbload only supports up to 64kb of flash!
 #endif
 
+/* we are just checking the lower byte of flash_address,
+ * so make sure SPM_PAGESIZE is <= 256
+ */
+#if SPM_PAGESIZE > 256
+#   error "SPM_PAGESIZE is too big (just checking lower byte)"
+#endif
+
 /* start flash (byte address) read/write at this address */
 usbWord_t flash_address;
 uint8_t bytes_remaining;
@@ -203,7 +210,10 @@ uchar usbFunctionWrite(uchar *data, uchar len)
         for (uint8_t i = 0; i < len; i++)
             eeprom_write_byte((uint8_t *)flash_address.word++, *data++);
     } else {
-        for (uint8_t i = 0; i < len/2; i++) {
+        /* data is handled wordwise, adjust len */
+        len /= 2;
+        len -= 1;
+        for (uint8_t i = 0; i <= len; i++) {
             uint16_t *w = (uint16_t *)data;
             cli();
             boot_page_fill(flash_address.word, *w);
@@ -213,7 +223,8 @@ uchar usbFunctionWrite(uchar *data, uchar len)
             data += 2;
 
             /* write page if page boundary is crossed or this is the last page */
-            if ( flash_address.bytes[0] % SPM_PAGESIZE == 0 || bytes_remaining == 0) {
+            if ( flash_address.bytes[0] % SPM_PAGESIZE == 0 ||
+                    (bytes_remaining == 0 && i == len) ) {
                 cli();
                 boot_page_write(flash_address.word-2);
                 sei();
