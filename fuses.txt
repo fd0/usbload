@@ -1,3 +1,6 @@
+additional fuse bit settings for using this bootloader:
+=======================================================
+
 atmega88/168:
 
     extended fuse byte:
