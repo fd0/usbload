@@ -219,20 +219,24 @@ uchar usbFunctionWrite(uchar *data, uchar len)
             boot_page_fill(flash_address.word, *w);
             sei();
 
-            flash_address.word += 2;
+            usbWord_t next_address;
+            next_address.word = flash_address.word;
+            next_address.word += 2;
             data += 2;
 
             /* write page if page boundary is crossed or this is the last page */
-            if ( flash_address.bytes[0] % SPM_PAGESIZE == 0 ||
+            if ( next_address.bytes[0] % SPM_PAGESIZE == 0 ||
                     (bytes_remaining == 0 && i == len) ) {
                 cli();
-                boot_page_write(flash_address.word-2);
+                boot_page_write(flash_address.word);
                 sei();
                 boot_spm_busy_wait();
                 cli();
                 boot_rww_enable();
                 sei();
             }
+
+            flash_address.word = next_address.word;
         }
     }
 
