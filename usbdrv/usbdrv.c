@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2005 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: usbdrv.c 466 2008-01-05 13:32:07Z cs $
+ * This Revision: $Id: usbdrv.c 521 2008-02-09 20:30:27Z cs $
  */
 
 #include "iarcompat.h"
@@ -211,6 +211,16 @@ typedef union{
 
 /* ------------------------------------------------------------------------- */
 
+static inline void  usbResetDataToggling(void)
+{
+#if USB_CFG_HAVE_INTRIN_ENDPOINT
+    USB_SET_DATATOKEN1(USB_INITIAL_DATATOKEN);  /* reset data toggling for interrupt endpoint */
+#   if USB_CFG_HAVE_INTRIN_ENDPOINT3
+    USB_SET_DATATOKEN3(USB_INITIAL_DATATOKEN);  /* reset data toggling for interrupt endpoint */
+#   endif
+#endif
+}
+
 #if USB_CFG_HAVE_INTRIN_ENDPOINT
 USB_PUBLIC void usbSetInterrupt(uchar *data, uchar len)
 {
@@ -393,26 +403,20 @@ uchar           replyLen = 0, flags = USB_FLG_USE_DEFAULT_RW;
                     SET_REPLY_LEN(1);
                 }else if(rq->bRequest == USBRQ_SET_CONFIGURATION){  /* 9 */
                     usbConfiguration = rq->wValue.bytes[0];
-#if USB_CFG_IMPLEMENT_HALT
+#if USB_CFG_HAVE_INTRIN_ENDPOINT && USB_CFG_IMPLEMENT_HALT
                     usbTxLen1 = USBPID_NAK;
 #endif
                 }else if(rq->bRequest == USBRQ_GET_INTERFACE){      /* 10 */
                     SET_REPLY_LEN(1);
 #if USB_CFG_HAVE_INTRIN_ENDPOINT
                 }else if(rq->bRequest == USBRQ_SET_INTERFACE){      /* 11 */
-                    USB_SET_DATATOKEN1(USB_INITIAL_DATATOKEN);  /* reset data toggling for interrupt endpoint */
-#   if USB_CFG_HAVE_INTRIN_ENDPOINT3
-                    USB_SET_DATATOKEN3(USB_INITIAL_DATATOKEN);  /* reset data toggling for interrupt endpoint */
-#   endif
+                    usbResetDataToggling();
 #   if USB_CFG_IMPLEMENT_HALT
                     usbTxLen1 = USBPID_NAK;
                 }else if(rq->bRequest == USBRQ_CLEAR_FEATURE || rq->bRequest == USBRQ_SET_FEATURE){   /* 1|3 */
                     if(rq->wValue.bytes[0] == 0 && rq->wIndex.bytes[0] == 0x81){   /* feature 0 == HALT for endpoint == 1 */
                         usbTxLen1 = rq->bRequest == USBRQ_CLEAR_FEATURE ? USBPID_NAK : USBPID_STALL;
-                        USB_SET_DATATOKEN1(USB_INITIAL_DATATOKEN);  /* reset data toggling for interrupt endpoint */
-#       if USB_CFG_HAVE_INTRIN_ENDPOINT3
-                        USB_SET_DATATOKEN3(USB_INITIAL_DATATOKEN);  /* reset data toggling for interrupt endpoint */
-#       endif
+                        usbResetDataToggling();
                     }
 #   endif
 #endif
@@ -531,7 +535,7 @@ uchar   i;
     if(i == 0){ /* RESET condition, called multiple times during reset */
         usbNewDeviceAddr = 0;
         usbDeviceAddr = 0;
-#if USB_CFG_IMPLEMENT_HALT
+#if USB_CFG_IMPLEMENT_HALT && USB_CFG_HAVE_INTRIN_ENDPOINT
         usbTxLen1 = USBPID_NAK;
 #if USB_CFG_HAVE_INTRIN_ENDPOINT3
         usbTxLen3 = USBPID_NAK;
@@ -551,12 +555,8 @@ USB_PUBLIC void usbInit(void)
 #if USB_INTR_CFG_CLR != 0
     USB_INTR_CFG &= ~(USB_INTR_CFG_CLR);
 #endif
-#if USB_CFG_HAVE_INTRIN_ENDPOINT
-    USB_SET_DATATOKEN1(USB_INITIAL_DATATOKEN);  /* reset data toggling for interrupt endpoint */
-#   if USB_CFG_HAVE_INTRIN_ENDPOINT3
-    USB_SET_DATATOKEN3(USB_INITIAL_DATATOKEN);  /* reset data toggling for interrupt endpoint */
-#   endif
-#endif
+    USB_INTR_ENABLE |= (1 << USB_INTR_ENABLE_BIT);
+    usbResetDataToggling();
 }
 
 /* ------------------------------------------------------------------------- */

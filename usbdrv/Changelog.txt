@@ -195,6 +195,14 @@ Scroll down to the bottom to see the most recent changes.
   - Fixed bug in 15 and 16 MHz module where the new address set with
     SET_ADDRESS was already accepted at the next NAK or ACK we send, not at
     the next data packet we send. This caused problems when the host polled
-    too fast.
+    too fast. Thanks to Alexander Neumann for his help and patience debugging
+    this issue!
 
 * Release 2008-02-05
+
+  - Fixed bug in 16.5 MHz module where a register was used in the interrupt
+    handler before it was pushed. This bug was introduced with version
+    2007-09-19 when common parts were moved to a separate file.
+  - Optimized CRC routine (thanks to Reimar Doeffinger).
+
+* Release 2008-02-16

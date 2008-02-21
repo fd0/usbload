@@ -37,10 +37,10 @@ of CPU cycles, but even an exact number of cycles!
 
 
 USB_INTR_VECTOR:
-;order of registers pushed: r0, SREG [sofError], YL, YH, shift, x1, x2, x3, x4, cnt
-    push    r0                  ;[-23] push only what is necessary to sync with edge ASAP
-    in      r0, SREG            ;[-21]
-    push    r0                  ;[-20]
+;order of registers pushed: YL, SREG [sofError], r0, YH, shift, x1, x2, x3, x4, cnt
+    push    YL                  ;[-23] push only what is necessary to sync with edge ASAP
+    in      YL, SREG            ;[-21]
+    push    YL                  ;[-20]
 ;----------------------------------------------------------------------------
 ; Synchronize with sync pattern:
 ;----------------------------------------------------------------------------
@@ -74,7 +74,7 @@ foundK:                         ;[-12]
 ;{3, 5} after falling D- edge, average delay: 4 cycles [we want 5 for center sampling]
 ;we have 1 bit time for setup purposes, then sample again. Numbers in brackets
 ;are cycles from center of first sync (double K) bit after the instruction
-    push    YL                  ;[-12]
+    push    r0                  ;[-12]
 ;   [---]                       ;[-11]
     push    YH                  ;[-10]
 ;   [---]                       ;[-9]
@@ -87,7 +87,7 @@ foundK:                         ;[-12]
     sbis    USBIN, USBMINUS     ;[-2] we want two bits K (sample 2 cycles too early)
     rjmp    haveTwoBitsK        ;[-1]
     pop     YH                  ;[0] undo the pushes from before
-    pop     YL                  ;[2]
+    pop     r0                  ;[2]
     rjmp    waitForK            ;[4] this was not the end of sync, retry
 ; The entire loop from waitForK until rjmp waitForK above must not exceed two
 ; bit times (= 22 cycles).
@@ -333,12 +333,12 @@ macro POP_STANDARD ; 16 cycles
     pop     x1
     pop     shift
     pop     YH
-    pop     YL
+    pop     r0
 endm
 macro POP_RETI     ; 5 cycles
-    pop     r0
-    out     SREG, r0
-    pop     r0
+    pop     YL
+    out     SREG, YL
+    pop     YL
 endm
 
 #include "asmcommon.inc"

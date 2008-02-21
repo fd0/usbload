@@ -166,33 +166,31 @@ RTMODEL "__rt_version", "3"
 usbCrc16:
     mov     ptrL, argPtrL
     mov     ptrH, argPtrH
-    ldi     resCrcL, 0xff
-    ldi     resCrcH, 0xff
+    ldi     resCrcL, 0
+    ldi     resCrcH, 0
     ldi     polyL, lo8(0xa001)
     ldi     polyH, hi8(0xa001)
+    com     argLen      ; argLen = -argLen - 1
 crcByteLoop:
-    subi    argLen, 1
-    brcs    crcReady
+    subi    argLen, -1
+    brcc    crcReady    ; modified loop to ensure that carry is set below
     ld      byte, ptr+
-    ldi     bitCnt, 8
+    ldi     bitCnt, -8  ; strange loop counter to ensure that carry is set where we need it
+    eor     resCrcL, byte
 crcBitLoop:
-    mov     scratch, byte
-    eor     scratch, resCrcL
-    lsr     resCrcH
+    ror     resCrcH     ; carry is always set here
     ror     resCrcL
-    lsr     byte
-    sbrs    scratch, 0
-    rjmp    crcNoXor
+    brcs    crcNoXor
     eor     resCrcL, polyL
     eor     resCrcH, polyH
 crcNoXor:
-    dec     bitCnt
-    brne    crcBitLoop
+    subi    bitCnt, -1
+    brcs    crcBitLoop
     rjmp    crcByteLoop
 crcReady:
-    com     resCrcL
-    com     resCrcH
     ret
+; Thanks to Reimar Doeffinger for optimizing this CRC routine!
+
 
 ; extern unsigned usbCrc16Append(unsigned char *data, unsigned char len);
 usbCrc16Append:
