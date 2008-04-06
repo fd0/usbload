@@ -86,10 +86,7 @@ static __attribute__ (( __noinline__ )) void putc(uint8_t data) {
 #endif
 
 /* prototypes */
-void __attribute__ (( __noreturn__, __noinline__ )) leave_bootloader(void);
-
-/* default ISR */
-// ISR(__vector_default){}
+void __attribute__ (( __noreturn__, __noinline__, __naked__ )) leave_bootloader(void);
 
 /* we just support flash sizes <= 64kb, for code size reasons
  * if you need to program bigger devices, have a look at USBasploader:
