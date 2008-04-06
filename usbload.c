@@ -294,6 +294,7 @@ int main(void)
     /* start bootloader */
 
     /* enable pullups for buttons */
+    DDRC = 0;
     PORTC = _BV(PC2) | _BV(PC3) | _BV(PC4) | _BV(PC5);
 
 #ifdef DEBUG_UART
