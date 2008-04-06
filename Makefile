@@ -71,18 +71,15 @@ fuses-atmega168-unzap:
 
 bootstrap: fuses-atmega168-unzap install lock
 
-.PHONY: clean clean-$(TARGET) clean-uploadtest clean-test
+.PHONY: clean clean-$(TARGET) clean-uploadtest
 
-clean: clean-$(TARGET) clean-uploadtest clean-test
+clean: clean-$(TARGET) clean-uploadtest
 
 clean-$(TARGET):
 	$(RM) $(TARGET) $(OBJECTS)
 
 clean-uploadtest:
 	rm -f datatestfile{512,14k}.raw
-
-clean-test:
-	$(MAKE) -C test clean
 
 .PHONY: depend test uploadtest
 
