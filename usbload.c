@@ -294,7 +294,6 @@ int main(void)
     /* start bootloader */
 
     /* enable pullups for buttons */
-    DDRC = 0;
     PORTC = _BV(PC2) | _BV(PC3) | _BV(PC4) | _BV(PC5);
 
 #ifdef DEBUG_UART
@@ -306,7 +305,7 @@ int main(void)
 #endif
 
     /* wait for keypress, if reset vector is valid.  skip otherwise */
-    if (pgm_read_word((void *)0) != 0xffff) {
+    if (pgm_read_byte_near((void *)0) != 0xff) {
         /* test if btn1 and btn4 are pressed for more than 1s */
         for (uint8_t i = 0; i < 200; i++) {
 
