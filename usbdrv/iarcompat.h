@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2006 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: iarcompat.h 275 2007-03-20 09:58:28Z cs $
+ * This Revision: $Id: iarcompat.h 533 2008-02-28 15:35:25Z cs $
  */
 
 /*
@@ -33,11 +33,6 @@ Thanks to Oleg Semyonov for his help with the IAR tools port!
 #endif
 
 #define __attribute__(arg)
-#define IAR_SECTION(section)    @ section
-
-#ifndef USB_BUFFER_SECTION
-#   define  USB_BUFFER_SECTION  "TINY_Z"    /* if user has not selected a named section */
-#endif
 
 #ifdef __IAR_SYSTEMS_ASM__
 #   define __ASSEMBLER__

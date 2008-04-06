@@ -206,3 +206,11 @@ Scroll down to the bottom to see the most recent changes.
   - Optimized CRC routine (thanks to Reimar Doeffinger).
 
 * Release 2008-02-16
+
+  - Removed outdated IAR compatibility stuff (code sections).
+  - Added hook macros for USB_RESET_HOOK() and USB_SET_ADDRESS_HOOK().
+  - Added optional routine usbMeasureFrameLength() for calibration of the
+    internal RC oscillator.
+
+* Release 2008-02-28
+

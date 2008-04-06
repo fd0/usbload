@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2005 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: usbconfig-prototype.h 464 2007-12-26 21:15:04Z cs $
+ * This Revision: $Id: usbconfig-prototype.h 532 2008-02-28 15:35:05Z cs $
  */
 
 #ifndef __usbconfig_h_included__
@@ -133,10 +133,23 @@ rename it to "usbconfig.h". Then edit it accordingly.
  * proceed, do a return after doing your things. One possible application
  * (besides debugging) is to flash a status LED on each packet.
  */
+/* #define USB_RESET_HOOK(resetStarts)     if(!resetStarts){hadUsbReset();} */
+/* This macro is a hook if you need to know when an USB RESET occurs. It has
+ * one parameter which distinguishes between the start of RESET state and its
+ * end.
+ */
+/* #define USB_SET_ADDRESS_HOOK()              hadAddressAssigned(); */
+/* This macro (if defined) is executed when a USB SET_ADDRESS request was
+ * received.
+ */
 #define USB_COUNT_SOF                   0
 /* define this macro to 1 if you need the global variable "usbSofCount" which
  * counts SOF packets. This feature requires that the hardware interrupt is
  * connected to D- instead of D+.
+ */
+#define USB_CFG_HAVE_MEASURE_FRAME_LENGTH   0
+/* define this macro to 1 if you want the function usbMeasureFrameLength()
+ * compiled in. This function can be used to calibrate the AVR's RC oscillator.
  */
 
 /* -------------------------- Device Description --------------------------- */

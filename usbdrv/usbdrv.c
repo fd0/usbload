@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2005 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: usbdrv.c 521 2008-02-09 20:30:27Z cs $
+ * This Revision: $Id: usbdrv.c 530 2008-02-28 15:34:04Z cs $
  */
 
 #include "iarcompat.h"
@@ -22,14 +22,6 @@ This module implements the C-part of the USB driver. See usbdrv.h for a
 documentation of the entire driver.
 */
 
-#ifndef IAR_SECTION
-#define IAR_SECTION(arg)
-#define __no_init
-#endif
-/* The macro IAR_SECTION is a hack to allow IAR-cc compatibility. On gcc, it
- * is defined to nothing. __no_init is required on IAR.
- */
-
 /* ------------------------------------------------------------------------- */
 
 /* raw USB registers / interface to assembler code: */
@@ -44,16 +36,16 @@ uchar       usbRxToken;         /* token for data we received; or endpont number
 uchar       usbMsgLen = 0xff;   /* remaining number of bytes, no msg to send if -1 (see usbMsgPtr) */
 volatile uchar usbTxLen = USBPID_NAK;   /* number of bytes to transmit with next IN token or handshake token */
 uchar       usbTxBuf[USB_BUFSIZE];/* data to transmit with next IN, free if usbTxLen contains handshake token */
-#   if USB_COUNT_SOF
+#if USB_COUNT_SOF
 volatile uchar  usbSofCount;    /* incremented by assembler module every SOF */
-#   endif
+#endif
 #if USB_CFG_HAVE_INTRIN_ENDPOINT
 volatile uchar usbTxLen1 = USBPID_NAK;  /* TX count for endpoint 1 */
 uchar       usbTxBuf1[USB_BUFSIZE];     /* TX data for endpoint 1 */
-#if USB_CFG_HAVE_INTRIN_ENDPOINT3
+#   if USB_CFG_HAVE_INTRIN_ENDPOINT3
 volatile uchar usbTxLen3 = USBPID_NAK;  /* TX count for endpoint 3 */
 uchar       usbTxBuf3[USB_BUFSIZE];     /* TX data for endpoint 3 */
-#endif
+#   endif
 #endif
 
 /* USB status registers / not shared with asm code */
@@ -221,6 +213,18 @@ static inline void  usbResetDataToggling(void)
 #endif
 }
 
+static inline void  usbResetStall(void)
+{
+#if USB_CFG_IMPLEMENT_HALT && USB_CFG_HAVE_INTRIN_ENDPOINT
+        usbTxLen1 = USBPID_NAK;
+#if USB_CFG_HAVE_INTRIN_ENDPOINT3
+        usbTxLen3 = USBPID_NAK;
+#endif
+#endif
+}
+
+/* ------------------------------------------------------------------------- */
+
 #if USB_CFG_HAVE_INTRIN_ENDPOINT
 USB_PUBLIC void usbSetInterrupt(uchar *data, uchar len)
 {
@@ -365,6 +369,9 @@ uchar           replyLen = 0, flags = USB_FLG_USE_DEFAULT_RW;
                     SET_REPLY_LEN(2);
                 }else if(rq->bRequest == USBRQ_SET_ADDRESS){    /* 5 */
                     usbNewDeviceAddr = rq->wValue.bytes[0];
+#ifdef USB_SET_ADDRESS_HOOK
+                    USB_SET_ADDRESS_HOOK();
+#endif
                 }else if(rq->bRequest == USBRQ_GET_DESCRIPTOR){ /* 6 */
                     flags = USB_FLG_MSGPTR_IS_ROM | USB_FLG_USE_DEFAULT_RW;
                     if(rq->wValue.bytes[1] == USBDESCR_DEVICE){ /* 1 */
@@ -403,16 +410,14 @@ uchar           replyLen = 0, flags = USB_FLG_USE_DEFAULT_RW;
                     SET_REPLY_LEN(1);
                 }else if(rq->bRequest == USBRQ_SET_CONFIGURATION){  /* 9 */
                     usbConfiguration = rq->wValue.bytes[0];
-#if USB_CFG_HAVE_INTRIN_ENDPOINT && USB_CFG_IMPLEMENT_HALT
-                    usbTxLen1 = USBPID_NAK;
-#endif
+                    usbResetStall();
                 }else if(rq->bRequest == USBRQ_GET_INTERFACE){      /* 10 */
                     SET_REPLY_LEN(1);
 #if USB_CFG_HAVE_INTRIN_ENDPOINT
                 }else if(rq->bRequest == USBRQ_SET_INTERFACE){      /* 11 */
                     usbResetDataToggling();
+                    usbResetStall();
 #   if USB_CFG_IMPLEMENT_HALT
-                    usbTxLen1 = USBPID_NAK;
                 }else if(rq->bRequest == USBRQ_CLEAR_FEATURE || rq->bRequest == USBRQ_SET_FEATURE){   /* 1|3 */
                     if(rq->wValue.bytes[0] == 0 && rq->wIndex.bytes[0] == 0x81){   /* feature 0 == HALT for endpoint == 1 */
                         usbTxLen1 = rq->bRequest == USBRQ_CLEAR_FEATURE ? USBPID_NAK : USBPID_STALL;
@@ -489,6 +494,8 @@ uchar   wantLen, len, txLen, token;
     DBG2(0x20, usbTxBuf, txLen-1);
 }
 
+/* ------------------------------------------------------------------------- */
+
 static inline uchar isNotSE0(void)
 {
 uchar   rval;
@@ -499,6 +506,19 @@ uchar   rval;
  */
     rval = USBIN & USBMASK;
     return rval;
+}
+
+static inline void usbHandleResetHook(uchar notResetState)
+{
+#ifdef USB_RESET_HOOK
+static uchar    wasReset;
+uchar           isReset = !notResetState;
+
+    if(wasReset != isReset){
+        USB_RESET_HOOK(isReset);
+        wasReset = isReset;
+    }
+#endif
 }
 
 /* ------------------------------------------------------------------------- */
@@ -535,14 +555,10 @@ uchar   i;
     if(i == 0){ /* RESET condition, called multiple times during reset */
         usbNewDeviceAddr = 0;
         usbDeviceAddr = 0;
-#if USB_CFG_IMPLEMENT_HALT && USB_CFG_HAVE_INTRIN_ENDPOINT
-        usbTxLen1 = USBPID_NAK;
-#if USB_CFG_HAVE_INTRIN_ENDPOINT3
-        usbTxLen3 = USBPID_NAK;
-#endif
-#endif
+        usbResetStall();
         DBG1(0xff, 0, 0);
     }
+    usbHandleResetHook(i);
 }
 
 /* ------------------------------------------------------------------------- */

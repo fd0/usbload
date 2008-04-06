@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2005 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: usbdrv.h 526 2008-02-16 13:30:04Z cs $
+ * This Revision: $Id: usbdrv.h 536 2008-02-28 21:11:35Z cs $
  */
 
 #ifndef __usbdrv_h_included__
@@ -122,7 +122,7 @@ USB messages, even if they address another (low-speed) device on the same bus.
 /* --------------------------- Module Interface ---------------------------- */
 /* ------------------------------------------------------------------------- */
 
-#define USBDRV_VERSION  20080216
+#define USBDRV_VERSION  20080228
 /* This define uniquely identifies a driver version. It is a decimal number
  * constructed from the driver's release date in the form YYYYMMDD. If the
  * driver's behavior or interface changes, you can use this constant to
@@ -270,16 +270,10 @@ USB_PUBLIC void usbFunctionWriteOut(uchar *data, uchar len);
  */
 #endif /* USB_CFG_IMPLEMENT_FN_WRITEOUT */
 #ifdef USB_CFG_PULLUP_IOPORTNAME
-#define usbDeviceConnect()      do { \
-                                    USB_PULLUP_DDR |= (1<<USB_CFG_PULLUP_BIT); \
-                                    USB_PULLUP_OUT |= (1<<USB_CFG_PULLUP_BIT); \
-                                    USB_INTR_ENABLE |= (1 << USB_INTR_ENABLE_BIT); \
-                                   } while(0);
-#define usbDeviceDisconnect()   do { \
-                                    USB_INTR_ENABLE &= ~(1 << USB_INTR_ENABLE_BIT); \
-                                    USB_PULLUP_DDR &= ~(1<<USB_CFG_PULLUP_BIT); \
-                                    USB_PULLUP_OUT &= ~(1<<USB_CFG_PULLUP_BIT); \
-                                   } while(0);
+#define usbDeviceConnect()      ((USB_PULLUP_DDR |= (1<<USB_CFG_PULLUP_BIT)), \
+                                  (USB_PULLUP_OUT |= (1<<USB_CFG_PULLUP_BIT)))
+#define usbDeviceDisconnect()   ((USB_PULLUP_DDR &= ~(1<<USB_CFG_PULLUP_BIT)), \
+                                  (USB_PULLUP_OUT &= ~(1<<USB_CFG_PULLUP_BIT)))
 #else /* USB_CFG_PULLUP_IOPORTNAME */
 #define usbDeviceConnect()      (USBDDR &= ~(1<<USBMINUS))
 #define usbDeviceDisconnect()   (USBDDR |= (1<<USBMINUS))
@@ -310,6 +304,16 @@ extern unsigned usbCrc16Append(unsigned data, uchar len);
  * the 2 bytes CRC (lowbyte first) in the 'data' buffer after reading 'len'
  * bytes.
  */
+#if USB_CFG_HAVE_MEASURE_FRAME_LENGTH
+extern unsigned usbMeasureFrameLength(void);
+/* This function MUST be called IMMEDIATELY AFTER USB reset and measures 1/7 of
+ * the number of CPU cycles during one USB frame minus one low speed bit
+ * length. In other words: return value = 1499 * (F_CPU / 10.5 MHz)
+ * Since this is a busy wait, you MUST disable all interrupts with cli() before
+ * calling this function.
+ * This can be used to calibrate the AVR's RC oscillator.
+ */
+#endif
 extern uchar    usbConfiguration;
 /* This value contains the current configuration set by the host. The driver
  * allows setting and querying of this variable with the USB SET_CONFIGURATION
