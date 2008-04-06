@@ -95,7 +95,7 @@ void __attribute__ (( __noreturn__, __noinline__ )) leave_bootloader(void);
  * if you need to program bigger devices, have a look at USBasploader:
  * http://www.obdev.at/products/avrusb/usbasploader.html */
 #if FLASHEND > 0xffff
-#   error "usbload only supports up to 64kb of flash!
+#   error "usbload only supports up to 64kb of flash!"
 #endif
 
 /* we are just checking the lower byte of flash_address,
