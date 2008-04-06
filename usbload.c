@@ -310,7 +310,7 @@ int main(void)
         /* test if btn1 and btn4 are pressed for more than 1s */
         for (uint8_t i = 0; i < 200; i++) {
 
-            /* if one button is release, jump to main application */
+            /* if one button is released, jump to main application */
             if ((PINC & (_BV(PC2) | _BV(PC5))) > 0)
                 leave_bootloader();
 
