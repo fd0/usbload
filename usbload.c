@@ -85,6 +85,25 @@ static __attribute__ (( __noinline__ )) void putc(uint8_t data) {
 #define putc(x)
 #endif
 
+/* supply custom usbDeviceConnect() and usbDeviceDisconnect() macros
+ * which turn the interrupt on and off at the right times,
+ * and prevent the execution of an interrupt while the pullup resistor
+ * is switched off */
+#ifdef USB_CFG_PULLUP_IOPORTNAME
+#undef usbDeviceConnect
+#define usbDeviceConnect()      do { \
+                                    USB_PULLUP_DDR |= (1<<USB_CFG_PULLUP_BIT); \
+                                    USB_PULLUP_OUT |= (1<<USB_CFG_PULLUP_BIT); \
+                                    USB_INTR_ENABLE |= (1 << USB_INTR_ENABLE_BIT); \
+                                   } while(0);
+#undef usbDeviceDisconnect
+#define usbDeviceDisconnect()   do { \
+                                    USB_INTR_ENABLE &= ~(1 << USB_INTR_ENABLE_BIT); \
+                                    USB_PULLUP_DDR &= ~(1<<USB_CFG_PULLUP_BIT); \
+                                    USB_PULLUP_OUT &= ~(1<<USB_CFG_PULLUP_BIT); \
+                                   } while(0);
+#endif
+
 /* prototypes */
 void __attribute__ (( __noreturn__, __noinline__, __naked__ )) leave_bootloader(void);
 
