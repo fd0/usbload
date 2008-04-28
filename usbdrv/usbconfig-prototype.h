@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2005 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: usbconfig-prototype.h 532 2008-02-28 15:35:05Z cs $
+ * This Revision: $Id: usbconfig-prototype.h 555 2008-04-17 19:25:20Z cs $
  */
 
 #ifndef __usbconfig_h_included__
@@ -14,12 +14,14 @@
 /*
 General Description:
 This file is an example configuration (with inline documentation) for the USB
-driver. It configures AVR-USB for an ATMega8 with USB D+ connected to Port D
-bit 2 (which is also hardware interrupt 0) and USB D- to Port D bit 0. You may
-wire the lines to any other port, as long as D+ is also wired to INT0.
-To create your own usbconfig.h file, copy this file to the directory
-containing "usbdrv" (that is your project firmware source directory) and
-rename it to "usbconfig.h". Then edit it accordingly.
+driver. It configures AVR-USB for USB D+ connected to Port D bit 2 (which is
+also hardware interrupt 0 on many devices) and USB D- to Port D bit 4. You may
+wire the lines to any other port, as long as D+ is also wired to INT0 (or any
+other hardware interrupt, as long as it is the highest level interrupt, see
+section at the end of this file).
++ To create your own usbconfig.h file, copy this file to your project's
++ firmware source directory) and rename it to "usbconfig.h".
++ Then edit it accordingly.
 */
 
 /* ---------------------------- Hardware Config ---------------------------- */
@@ -28,7 +30,7 @@ rename it to "usbconfig.h". Then edit it accordingly.
 /* This is the port where the USB bus is connected. When you configure it to
  * "B", the registers PORTB, PINB and DDRB will be used.
  */
-#define USB_CFG_DMINUS_BIT      0
+#define USB_CFG_DMINUS_BIT      4
 /* This is the bit number in USB_CFG_IOPORT where the USB D- line is connected.
  * This may be any bit in the port.
  */
@@ -41,7 +43,7 @@ rename it to "usbconfig.h". Then edit it accordingly.
  * interrupt, the USB interrupt will also be triggered at Start-Of-Frame
  * markers every millisecond.]
  */
-/* #define USB_CFG_CLOCK_KHZ       (F_CPU/1000) */
+#define USB_CFG_CLOCK_KHZ       (F_CPU/1000)
 /* Clock rate of the AVR in MHz. Legal values are 12000, 15000, 16000 or 16500.
  * The 16.5 MHz version of the code requires no crystal, it tolerates +/- 1%
  * deviation from the nominal frequency. All other rates require a precision
@@ -65,7 +67,7 @@ rename it to "usbconfig.h". Then edit it accordingly.
 
 /* --------------------------- Functional Range ---------------------------- */
 
-#define USB_CFG_HAVE_INTRIN_ENDPOINT    1
+#define USB_CFG_HAVE_INTRIN_ENDPOINT    0
 /* Define this to 1 if you want to compile a version with two endpoints: The
  * default control endpoint 0 and an interrupt-in endpoint (any other endpoint
  * number).
@@ -80,9 +82,11 @@ rename it to "usbconfig.h". Then edit it accordingly.
 /* If the so-called endpoint 3 is used, it can now be configured to any other
  * endpoint number (except 0) with this macro. Default if undefined is 3.
  */
-/* #define USB_INITIAL_DATATOKEN           USBPID_DATA0 */
+/* #define USB_INITIAL_DATATOKEN           USBPID_DATA1 */
 /* The above macro defines the startup condition for data toggling on the
- * interrupt/bulk endpoints 1 and 3. Defaults to USBPID_DATA0.
+ * interrupt/bulk endpoints 1 and 3. Defaults to USBPID_DATA1.
+ * Since the token is toggled BEFORE sending any data, the first packet is
+ * sent with the oposite value of this configuration!
  */
 #define USB_CFG_IMPLEMENT_HALT          0
 /* Define this to 1 if you also want to implement the ENDPOINT_HALT feature
@@ -90,7 +94,7 @@ rename it to "usbconfig.h". Then edit it accordingly.
  * it is required by the standard. We have made it a config option because it
  * bloats the code considerably.
  */
-#define USB_CFG_INTR_POLL_INTERVAL      20
+#define USB_CFG_INTR_POLL_INTERVAL      10
 /* If you compile a version with endpoint 1 (interrupt-in), this is the poll
  * interval. The value is in milliseconds and must not be less than 10 ms for
  * low speed devices.
@@ -156,25 +160,25 @@ rename it to "usbconfig.h". Then edit it accordingly.
 
 #define  USB_CFG_VENDOR_ID       0xc0, 0x16
 /* USB vendor ID for the device, low byte first. If you have registered your
- * own Vendor ID, define it here. Otherwise you use obdev's free shared
- * VID/PID pair. Be sure to read USBID-License.txt for rules!
- * This template uses obdev's shared VID/PID pair for HIDs: 0x16c0/0x5df.
- * Use this VID/PID pair ONLY if you understand the implications!
+ * own Vendor ID, define it here. Otherwise you use one of obdev's free shared
+ * VID/PID pairs. Be sure to read USBID-License.txt for rules!
+ * + This template uses obdev's shared VID/PID pair: 0x16c0/0x5dc.
+ * + Use this VID/PID pair ONLY if you understand the implications!
  */
-#define  USB_CFG_DEVICE_ID       0xdf, 0x05
+#define  USB_CFG_DEVICE_ID       0xdc, 0x05
 /* This is the ID of the product, low byte first. It is interpreted in the
  * scope of the vendor ID. If you have registered your own VID with usb.org
  * or if you have licensed a PID from somebody else, define it here. Otherwise
  * you use obdev's free shared VID/PID pair. Be sure to read the rules in
  * USBID-License.txt!
- * This template uses obdev's shared VID/PID pair for HIDs: 0x16c0/0x5df.
- * Use this VID/PID pair ONLY if you understand the implications!
+ * + This template uses obdev's shared VID/PID pair: 0x16c0/0x5dc.
+ * + Use this VID/PID pair ONLY if you understand the implications!
  */
 #define USB_CFG_DEVICE_VERSION  0x00, 0x01
 /* Version number of the device: Minor number first, then major number.
  */
-#define USB_CFG_VENDOR_NAME     'w', 'w', 'w', '.', 'o', 'b', 'd', 'e', 'v', '.', 'a', 't'
-#define USB_CFG_VENDOR_NAME_LEN 12
+#define USB_CFG_VENDOR_NAME     'o', 'b', 'd', 'e', 'v', '.', 'a', 't'
+#define USB_CFG_VENDOR_NAME_LEN 8
 /* These two values define the vendor name returned by the USB device. The name
  * must be given as a list of characters under single quotes. The characters
  * are interpreted as Unicode (UTF-16) entities.
@@ -198,23 +202,23 @@ rename it to "usbconfig.h". Then edit it accordingly.
  * to fine tune control over USB descriptors such as the string descriptor
  * for the serial number.
  */
-#define USB_CFG_DEVICE_CLASS        0
+#define USB_CFG_DEVICE_CLASS        0xff    /* set to 0 if deferred to interface */
 #define USB_CFG_DEVICE_SUBCLASS     0
 /* See USB specification if you want to conform to an existing device class.
+ * Class 0xff is "vendor specific".
  */
-#define USB_CFG_INTERFACE_CLASS     3   /* HID */
+#define USB_CFG_INTERFACE_CLASS     0   /* define class here if not at device level */
 #define USB_CFG_INTERFACE_SUBCLASS  0
 #define USB_CFG_INTERFACE_PROTOCOL  0
 /* See USB specification if you want to conform to an existing device class or
- * protocol.
- * This template defines a HID class device. If you implement a vendor class
- * device, set USB_CFG_INTERFACE_CLASS to 0 and USB_CFG_DEVICE_CLASS to 0xff.
+ * protocol. The following classes must be set at interface level:
+ * HID class is 3, no subclass and protocol required (but may be useful!)
+ * CDC class is 2, use subclass 2 and protocol 1 for ACM
  */
-#define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    42  /* total length of report descriptor */
+/* #define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    42 */
 /* Define this to the length of the HID report descriptor, if you implement
  * an HID device. Otherwise don't define it or define it to 0.
- * Since this template defines a HID device, it must also specify a HID
- * report descriptor length. You must add a PROGMEM character array named
+ * If you use this define, you must add a PROGMEM character array named
  * "usbHidReportDescriptor" to your code which contains the report descriptor.
  * Don't forget to keep the array and this define in sync!
  */

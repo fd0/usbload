@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2005 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: usbdrv.h 536 2008-02-28 21:11:35Z cs $
+ * This Revision: $Id: usbdrv.h 563 2008-04-18 18:02:44Z cs $
  */
 
 #ifndef __usbdrv_h_included__
@@ -122,7 +122,7 @@ USB messages, even if they address another (low-speed) device on the same bus.
 /* --------------------------- Module Interface ---------------------------- */
 /* ------------------------------------------------------------------------- */
 
-#define USBDRV_VERSION  20080228
+#define USBDRV_VERSION  20080418
 /* This define uniquely identifies a driver version. It is a decimal number
  * constructed from the driver's release date in the form YYYYMMDD. If the
  * driver's behavior or interface changes, you can use this constant to
@@ -264,9 +264,10 @@ USB_PUBLIC uchar usbFunctionRead(uchar *data, uchar len);
 #endif /* USB_CFG_IMPLEMENT_FN_READ */
 #if USB_CFG_IMPLEMENT_FN_WRITEOUT
 USB_PUBLIC void usbFunctionWriteOut(uchar *data, uchar len);
-/* This function is called by the driver when data on interrupt-out or bulk-
- * out endpoint 1 is received. You must define USB_CFG_IMPLEMENT_FN_WRITEOUT
- * to 1 in usbconfig.h to get this function called.
+/* This function is called by the driver when data is received on an interrupt-
+ * or bulk-out endpoint. The endpoint number can be found in the global
+ * variable usbRxToken. You must define USB_CFG_IMPLEMENT_FN_WRITEOUT to 1 in
+ * usbconfig.h to get this function called.
  */
 #endif /* USB_CFG_IMPLEMENT_FN_WRITEOUT */
 #ifdef USB_CFG_PULLUP_IOPORTNAME
@@ -353,7 +354,9 @@ extern volatile schar   usbRxLen;
 #define USB_SET_DATATOKEN1(token)   usbTxBuf1[0] = token
 #define USB_SET_DATATOKEN3(token)   usbTxBuf3[0] = token
 /* These two macros can be used by application software to reset data toggling
- * for interrupt-in endpoints 1 and 3.
+ * for interrupt-in endpoints 1 and 3. Since the token is toggled BEFORE
+ * sending data, you must set the opposite value of the token which should come
+ * first.
  */
 
 #endif  /* __ASSEMBLER__ */
@@ -602,7 +605,7 @@ at90s1200, attiny11, attiny12, attiny15, attiny28: these have no RAM
 #define USBPID_STALL    0x1e
 
 #ifndef USB_INITIAL_DATATOKEN
-#define USB_INITIAL_DATATOKEN   USBPID_DATA0
+#define USB_INITIAL_DATATOKEN   USBPID_DATA1
 #endif
 
 #ifndef __ASSEMBLER__

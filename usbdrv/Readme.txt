@@ -3,8 +3,9 @@ for Atmel AVR microcontrollers. For more information please visit
 http://www.obdev.at/avrusb/
 
 This directory contains the USB firmware only. Copy it as-is to your own
-project and add your own version of "usbconfig.h". A template for your own
-"usbconfig.h" can be found in "usbconfig-prototype.h" in this directory.
+project and add all .c and .S files to your project (these files are marked
+with an asterisk in the list below). Then copy usbconfig-prototype.h as
+usbconfig.h to your project and edit it according to your configuration.
 
 
 TECHNICAL DOCUMENTATION
@@ -76,11 +77,8 @@ used since the 8 MHz RC oscillator cannot be trimmed up to 16.5 MHz. This
 includes the very popular ATTiny25, ATTiny45, ATTiny85 series as well as the
 ATTiny26.
 
-We recommend that you obtain appropriate calibration values for 16.5 MHz core
-clock at programming time and store it in flash or EEPROM or compute the value
-from a reference clock at run time. Atmel's 8 MHz calibration is much more
-precise than the guaranteed 10% and it's therefore often possible to work with
-a fixed offset from this value, but it may be out of range.
+See the EasyLogger example at http://www.obdev.at/avrusb/easylogger.html for
+code which calibrates the RC oscillator based on the USB frame clock.
 
 
 USB IDENTIFIERS
@@ -90,25 +88,11 @@ are obtained from usb.org for a price of 1,500 USD. Once you have a VID, you
 can assign PIDs at will.
 
 Since an entry level cost of 1,500 USD is too high for most small companies
-and hobbyists, we provide a single VID/PID pair for free. If you want to use
-your own VID and PID instead of our's, define the macros "USB_CFG_VENDOR_ID"
-and "USB_CFG_DEVICE_ID" accordingly in "usbconfig.h".
+and hobbyists, we provide some VID/PID pairs for free. See the file
+USBID-License.txt for details.
 
-To use our predefined VID/PID pair, you MUST conform to a couple of
-requirements. See the file "USBID-License.txt" for details.
-
-Objective Development also has some offerings which include product IDs. See
-http://www.obdev.at/avrusb/ for details.
-
-
-HOST DRIVER
-===========
-You have received this driver together with an example device implementation
-and an example host driver. The host driver is based on libusb and compiles
-on various Unix flavors (Linux, BSD, Mac OS X). It also compiles natively on
-Windows using MinGW (see www.mingw.org) and libusb-win32 (see
-libusb-win32.sourceforge.net). The "Automator" project contains a native
-Windows host driver (not based on libusb) for Human Interface Devices.
+Objective Development also has some license offerings which include product
+IDs. See http://www.obdev.at/avrusb/ for details.
 
 
 DEVELOPMENT SYSTEM
@@ -133,6 +117,9 @@ things IN ADDITION to the obligations from the GPL2:
 
 (1) Publish your entire project on a web site and drop us a note with the URL.
 Use the form at http://www.obdev.at/avrusb/feedback.html for your submission.
+If you don't have a web site, you can publish the project in obdev's
+documentation wiki at
+http://www.obdev.at/goto.php?t=avrusb-wiki&p=hosted-projects.
 
 (2) Adhere to minimum publication standards. Please include AT LEAST:
     - a circuit diagram in PDF, PNG or GIF format
