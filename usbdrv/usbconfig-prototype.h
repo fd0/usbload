@@ -5,7 +5,7 @@
  * Tabsize: 4
  * Copyright: (c) 2005 by OBJECTIVE DEVELOPMENT Software GmbH
  * License: GNU GPL v2 (see License.txt) or proprietary (CommercialLicense.txt)
- * This Revision: $Id: usbconfig-prototype.h 555 2008-04-17 19:25:20Z cs $
+ * This Revision: $Id: usbconfig-prototype.h 600 2008-05-13 10:34:56Z cs $
  */
 
 #ifndef __usbconfig_h_included__
@@ -44,10 +44,10 @@ section at the end of this file).
  * markers every millisecond.]
  */
 #define USB_CFG_CLOCK_KHZ       (F_CPU/1000)
-/* Clock rate of the AVR in MHz. Legal values are 12000, 15000, 16000 or 16500.
- * The 16.5 MHz version of the code requires no crystal, it tolerates +/- 1%
- * deviation from the nominal frequency. All other rates require a precision
- * of 2000 ppm and thus a crystal!
+/* Clock rate of the AVR in MHz. Legal values are 12000, 15000, 16000, 16500
+ * and 20000. The 16.5 MHz version of the code requires no crystal, it
+ * tolerates +/- 1% deviation from the nominal frequency. All other rates
+ * require a precision of 2000 ppm and thus a crystal!
  * Default if not specified: 12 MHz
  */
 
@@ -129,6 +129,11 @@ section at the end of this file).
 /* Define this to 1 if you want flowcontrol over USB data. See the definition
  * of the macros usbDisableAllRequests() and usbEnableAllRequests() in
  * usbdrv.h.
+ */
+#define USB_CFG_LONG_TRANSFERS          0
+/* Define this to 1 if you want to send/receive blocks of more than 254 bytes
+ * in a single control-in or control-out transfer. Note that the capability
+ * for long transfers increases the driver size.
  */
 /* #define USB_RX_USER_HOOK(data, len)     if(usbRxToken == (uchar)USBPID_SETUP) blinkLED(); */
 /* This macro is a hook if you want to do unconventional things. If it is

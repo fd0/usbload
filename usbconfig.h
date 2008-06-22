@@ -26,13 +26,17 @@ the newest features and options.
 #define USB_CFG_DPLUS_BIT       2
 /* This is the bit number in USB_CFG_IOPORT where the USB D+ line is connected.
  * This may be any bit in the port. Please note that D+ must also be connected
- * to interrupt pin INT0!
+ * to interrupt pin INT0! [You can also use other interrupts, see section
+ * "Optional MCU Description" below, or you can connect D- to the interrupt, as
+ * it is required if you use the USB_COUNT_SOF feature. If you use D- for the
+ * interrupt, the USB interrupt will also be triggered at Start-Of-Frame
+ * markers every millisecond.]
  */
 #define USB_CFG_CLOCK_KHZ       (F_CPU/1000)
-/* Clock rate of the AVR in MHz. Legal values are 12000, 16000 or 16500.
- * The 16.5 MHz version of the code requires no crystal, it tolerates +/- 1%
- * deviation from the nominal frequency. All other rates require a precision
- * of 2000 ppm and thus a crystal!
+/* Clock rate of the AVR in MHz. Legal values are 12000, 15000, 16000, 16500
+ * and 20000. The 16.5 MHz version of the code requires no crystal, it
+ * tolerates +/- 1% deviation from the nominal frequency. All other rates
+ * require a precision of 2000 ppm and thus a crystal!
  * Default if not specified: 12 MHz
  */
 
@@ -54,12 +58,24 @@ the newest features and options.
 
 #define USB_CFG_HAVE_INTRIN_ENDPOINT    0
 /* Define this to 1 if you want to compile a version with two endpoints: The
- * default control endpoint 0 and an interrupt-in endpoint 1.
+ * default control endpoint 0 and an interrupt-in endpoint (any other endpoint
+ * number).
  */
 #define USB_CFG_HAVE_INTRIN_ENDPOINT3   0
 /* Define this to 1 if you want to compile a version with three endpoints: The
- * default control endpoint 0, an interrupt-in endpoint 1 and an interrupt-in
- * endpoint 3. You must also enable endpoint 1 above.
+ * default control endpoint 0, an interrupt-in endpoint 3 (or the number
+ * configured below) and a catch-all default interrupt-in endpoint as above.
+ * You must also define USB_CFG_HAVE_INTRIN_ENDPOINT to 1 for this feature.
+ */
+#define USB_CFG_EP3_NUMBER              3
+/* If the so-called endpoint 3 is used, it can now be configured to any other
+ * endpoint number (except 0) with this macro. Default if undefined is 3.
+ */
+/* #define USB_INITIAL_DATATOKEN           USBPID_DATA1 */
+/* The above macro defines the startup condition for data toggling on the
+ * interrupt/bulk endpoints 1 and 3. Defaults to USBPID_DATA1.
+ * Since the token is toggled BEFORE sending any data, the first packet is
+ * sent with the oposite value of this configuration!
  */
 #define USB_CFG_IMPLEMENT_HALT          0
 /* Define this to 1 if you also want to implement the ENDPOINT_HALT feature
@@ -93,14 +109,20 @@ the newest features and options.
  * usbFunctionSetup(). This saves a couple of bytes.
  */
 #define USB_CFG_IMPLEMENT_FN_WRITEOUT   0
-/* Define this to 1 if you want to use interrupt-out (or bulk out) endpoint 1.
+/* Define this to 1 if you want to use interrupt-out (or bulk out) endpoints.
  * You must implement the function usbFunctionWriteOut() which receives all
- * interrupt/bulk data sent to endpoint 1.
+ * interrupt/bulk data sent to any endpoint other than 0. The endpoint number
+ * can be found in 'usbRxToken'.
  */
 #define USB_CFG_HAVE_FLOWCONTROL        0
 /* Define this to 1 if you want flowcontrol over USB data. See the definition
  * of the macros usbDisableAllRequests() and usbEnableAllRequests() in
  * usbdrv.h.
+ */
+#define USB_CFG_LONG_TRANSFERS          0
+/* Define this to 1 if you want to send/receive blocks of more than 254 bytes
+ * in a single control-in or control-out transfer. Note that the capability
+ * for long transfers increases the driver size.
  */
 /* #define USB_RX_USER_HOOK(data, len)     if(usbRxToken == (uchar)USBPID_SETUP) blinkLED(); */
 /* This macro is a hook if you want to do unconventional things. If it is
@@ -109,9 +131,23 @@ the newest features and options.
  * proceed, do a return after doing your things. One possible application
  * (besides debugging) is to flash a status LED on each packet.
  */
+/* #define USB_RESET_HOOK(resetStarts)     if(!resetStarts){hadUsbReset();} */
+/* This macro is a hook if you need to know when an USB RESET occurs. It has
+ * one parameter which distinguishes between the start of RESET state and its
+ * end.
+ */
+/* #define USB_SET_ADDRESS_HOOK()              hadAddressAssigned(); */
+/* This macro (if defined) is executed when a USB SET_ADDRESS request was
+ * received.
+ */
 #define USB_COUNT_SOF                   0
 /* define this macro to 1 if you need the global variable "usbSofCount" which
- * counts SOF packets.
+ * counts SOF packets. This feature requires that the hardware interrupt is
+ * connected to D- instead of D+.
+ */
+#define USB_CFG_HAVE_MEASURE_FRAME_LENGTH   0
+/* define this macro to 1 if you want the function usbMeasureFrameLength()
+ * compiled in. This function can be used to calibrate the AVR's RC oscillator.
  */
 
 /* -------------------------- Device Description --------------------------- */
@@ -155,21 +191,23 @@ the newest features and options.
  * to fine tune control over USB descriptors such as the string descriptor
  * for the serial number.
  */
-#define USB_CFG_DEVICE_CLASS    0xff
-#define USB_CFG_DEVICE_SUBCLASS 0
+#define USB_CFG_DEVICE_CLASS        0xff    /* set to 0 if deferred to interface */
+#define USB_CFG_DEVICE_SUBCLASS     0
 /* See USB specification if you want to conform to an existing device class.
+ * Class 0xff is "vendor specific".
  */
-#define USB_CFG_INTERFACE_CLASS     0
+#define USB_CFG_INTERFACE_CLASS     0   /* define class here if not at device level */
 #define USB_CFG_INTERFACE_SUBCLASS  0
 #define USB_CFG_INTERFACE_PROTOCOL  0
 /* See USB specification if you want to conform to an existing device class or
- * protocol.
+ * protocol. The following classes must be set at interface level:
+ * HID class is 3, no subclass and protocol required (but may be useful!)
+ * CDC class is 2, use subclass 2 and protocol 1 for ACM
  */
-#define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    0   /* total length of report descriptor */
+/* #define USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH    42 */
 /* Define this to the length of the HID report descriptor, if you implement
  * an HID device. Otherwise don't define it or define it to 0.
- * Since this template defines a HID device, it must also specify a HID
- * report descriptor length. You must add a PROGMEM character array named
+ * If you use this define, you must add a PROGMEM character array named
  * "usbHidReportDescriptor" to your code which contains the report descriptor.
  * Don't forget to keep the array and this define in sync!
  */
