@@ -164,7 +164,7 @@ uchar   usbFunctionSetup(uchar data[8])
              * bits 0 and 1 of byte 3 determine the signature byte address */
             buf[3] = signature[data[4] & 0x03];
 
-#ifndef DISABLE_CATCH_EEPROM_ISP
+#ifdef ENABLE_CATCH_EEPROM_ISP
         /* catch eeprom read */
         } else if (data[2] == ISP_READ_EEPROM) {
 
@@ -194,11 +194,13 @@ uchar   usbFunctionSetup(uchar data[8])
         /* in case no data has been filled in by the if's above, just return zeroes */
         len = 4;
 
+#ifdef ENABLE_ECHO_FUNC
     /* implement a simple echo function, for testing the usb connectivity */
     } else if (req->bRequest == FUNC_ECHO) {
         buf[0] = req->wValue.bytes[0];
         buf[1] = req->wValue.bytes[1];
         len = 2;
+#endif
     } else if (req->bRequest >= USBASP_FUNC_READFLASH) {
         /* && req->bRequest <= USBASP_FUNC_SETLONGADDRESS */
 
@@ -308,7 +310,7 @@ void leave_bootloader(void)
     asm volatile ("jmp 0");
 }
 
-int main(void)
+int __attribute__ ((naked)) main(void)
 {
     /* start bootloader */
 
