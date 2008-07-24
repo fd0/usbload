@@ -125,6 +125,7 @@ void __attribute__ (( __noreturn__, __noinline__, __naked__ )) leave_bootloader(
 usbWord_t flash_address;
 uint8_t bytes_remaining;
 uint8_t request;
+uint8_t request_exit;
 
 uchar   usbFunctionSetup(uchar data[8])
 {
@@ -142,10 +143,11 @@ uchar   usbFunctionSetup(uchar data[8])
 
     } else if (req->bRequest == USBASP_FUNC_CONNECT) {
         /* turn on led */
-        PORTB &= ~_BV(PB2);
+        PORTC &= ~_BV(PC5);
     } else if (req->bRequest == USBASP_FUNC_DISCONNECT) {
         /* turn off led */
-        PORTB |= _BV(PB2);
+        PORTC |= _BV(PC5);
+        request_exit = 1;
     /* catch query for the devicecode, chip erase and eeprom byte requests */
     } else if (req->bRequest == USBASP_FUNC_TRANSMIT) {
 
@@ -259,7 +261,7 @@ uchar usbFunctionWrite(uchar *data, uchar len)
     }
 
     /* flash led on activity */
-    PORTB ^= _BV(PB2);
+    PORTC ^= _BV(PC4);
 
     return (bytes_remaining == 0);
 }
@@ -280,7 +282,7 @@ uchar usbFunctionRead(uchar *data, uchar len)
     }
 
     /* flash led on activity */
-    PORTB ^= _BV(PB2);
+    PORTC ^= _BV(PC4);
 
     return len;
 }
@@ -300,11 +302,10 @@ void leave_bootloader(void)
     USB_INTR_CFG = 0;
 
     /* reconfigure pins */
-    DDRB = 0;
-    PORTB = 0;
+    DDRC = 0;
     DDRD = 0;
-    PORTD = 0;
     PORTC = 0;
+    PORTD = 0;
 
     /* start main program at address 0 */
     asm volatile ("jmp 0");
@@ -314,34 +315,29 @@ int __attribute__ ((naked)) main(void)
 {
     /* start bootloader */
 
-    /* enable pullups for buttons */
-    DDRC = 0;
-    PORTC = _BV(PC2) | _BV(PC3) | _BV(PC4) | _BV(PC5);
-
 #ifdef DEBUG_UART
-    /* init uart */
-    UBRR0L = 8;
+    /* init uart (115200 baud, at 20mhz) */
+    UBRR0L = 10;
     UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
     UCSR0B = _BV(TXEN0);
     putc('b');
 #endif
 
-    /* wait for keypress, if reset vector is valid.  skip otherwise */
-    if (pgm_read_byte_near((void *)0) != 0xff) {
-        /* test if btn1 and btn4 are pressed for more than 1s */
-        for (uint8_t i = 0; i < 200; i++) {
+    uint8_t reset = MCUSR & ~_BV(PORF);
 
-            /* if one button is released, jump to main application */
-            if ((PINC & (_BV(PC2) | _BV(PC5))) > 0)
-                leave_bootloader();
+    /* if we have not been reset externally, start application */
+    if (!(reset == _BV(EXTRF)) && pgm_read_byte_near((void *)0) != 0xff)
+        leave_bootloader();
 
-            _delay_loop_2(F_CPU/4/200); /* wait for 5ms, 200 times */
-        }
-    }
+    /* clear external reset flags */
+    MCUSR = 0;
 
-    /* init led pins */
-    DDRB = _BV(PB1) | _BV(PB2);
-    PORTB = _BV(PB2);
+    /* init exit request state */
+    request_exit = 0;
+
+    /* init led pins (led1 and led2) */
+    DDRC = _BV(PC4) | _BV(PC5);
+    PORTC = _BV(PC4);
 
     /* move interrupts to boot section */
     MCUCR = (1 << IVCE);
@@ -355,21 +351,27 @@ int __attribute__ ((naked)) main(void)
 
     /* disconnect for ~500ms, so that the host re-enumerates this device */
     usbDeviceDisconnect();
-    for (uint8_t i = 0; i < 31; i++)
-        _delay_loop_2(0); /* 0 means 0x10000, 31*1/f*0x10000 =~ 508ms */
+    for (uint8_t i = 0; i < 38; i++)
+        _delay_loop_2(0); /* 0 means 0x10000, 38*1/f*0x10000 =~ 498ms */
     usbDeviceConnect();
 
     uint16_t delay;
+    uint8_t timeout = TIMEOUT;
+
     while(1) {
         usbPoll();
         delay++;
 
         /* do some led blinking, so that it is visible that the bootloader is still running */
-        if (delay == 0)
-            PORTB ^= _BV(PB1);
+        if (delay == 0) {
+            PORTC ^= _BV(PC4);
+            timeout--;
+        }
 
-        if ((PINC & _BV(PC3)) == 0)
-            break;
+        if (request_exit || (timeout == 0 && usbDeviceAddr == 0)) {
+            _delay_loop_2(0);
+            leave_bootloader();
+        }
     }
 
     leave_bootloader();
