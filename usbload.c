@@ -311,7 +311,7 @@ void leave_bootloader(void)
     asm volatile ("jmp 0");
 }
 
-int __attribute__ ((naked)) main(void)
+int __attribute__ ((noreturn,OS_main)) main(void)
 {
     /* start bootloader */
 
