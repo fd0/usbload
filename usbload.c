@@ -127,7 +127,9 @@ uint8_t bytes_remaining;
 uint8_t request;
 uint8_t request_exit;
 
-uchar   usbFunctionSetup(uchar data[8])
+uint8_t timeout;
+
+usbMsgLen_t usbFunctionSetup(uchar data[8])
 {
     usbRequest_t *req = (void *)data;
     uint8_t len = 0;
@@ -140,7 +142,7 @@ uchar   usbFunctionSetup(uchar data[8])
     if (req->bRequest == USBASP_FUNC_ENABLEPROG) {
         buf[0] = 0;
         len = 1;
-
+        timeout = 255;
     } else if (req->bRequest == USBASP_FUNC_CONNECT) {
         /* turn on led */
         PORTC &= ~_BV(PC5);
@@ -356,7 +358,7 @@ int __attribute__ ((noreturn,OS_main)) main(void)
     usbDeviceConnect();
 
     uint16_t delay;
-    uint8_t timeout = TIMEOUT;
+    timeout = TIMEOUT;
 
     while(1) {
         usbPoll();
@@ -365,10 +367,11 @@ int __attribute__ ((noreturn,OS_main)) main(void)
         /* do some led blinking, so that it is visible that the bootloader is still running */
         if (delay == 0) {
             PORTC ^= _BV(PC4);
-            timeout--;
+            if (timeout < 255)
+                timeout--;
         }
 
-        if (request_exit || (timeout == 0 && usbDeviceAddr == 0)) {
+        if (request_exit || timeout == 0) {
             _delay_loop_2(0);
             leave_bootloader();
         }
