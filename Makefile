@@ -69,6 +69,11 @@ fuses-atmega168-unzap:
 	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U lfuse:w:0xe7:m -U hfuse:w:0xd5:m -U efuse:w:0x00:m
 	echo "sck 0.2" | $(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -F -u -t
 
+fuses-atmega168-rumpus:
+	echo "sck 5" | $(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -F -u -t
+	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U lfuse:w:0xe7:m -U efuse:w:0x00:m
+	echo "sck 0.2" | $(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -F -u -t
+
 bootstrap: fuses-atmega168-unzap install lock
 
 .PHONY: clean clean-$(TARGET) clean-uploadtest

@@ -145,10 +145,10 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
         timeout = 255;
     } else if (req->bRequest == USBASP_FUNC_CONNECT) {
         /* turn on led */
-        PORTC &= ~_BV(PC5);
+        PORTD |= _BV(PD3);
     } else if (req->bRequest == USBASP_FUNC_DISCONNECT) {
         /* turn off led */
-        PORTC |= _BV(PC5);
+        PORTD &= ~_BV(PD3);
         request_exit = 1;
     /* catch query for the devicecode, chip erase and eeprom byte requests */
     } else if (req->bRequest == USBASP_FUNC_TRANSMIT) {
@@ -338,8 +338,9 @@ int __attribute__ ((noreturn,OS_main)) main(void)
     request_exit = 0;
 
     /* init led pins (led1 and led2) */
-    DDRC = _BV(PC4) | _BV(PC5);
+    DDRC = _BV(PC4);
     PORTC = _BV(PC4);
+    DDRD = _BV(PD3);
 
     /* move interrupts to boot section */
     MCUCR = (1 << IVCE);
