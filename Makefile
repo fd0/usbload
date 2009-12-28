@@ -1,7 +1,7 @@
 
 # microcontroller and project specific settings
 TARGET = usbload
-F_CPU = 20000000UL
+F_CPU = 16000000UL
 MCU = atmega168
 
 SRC = usbload.c

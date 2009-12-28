@@ -105,7 +105,7 @@ static __attribute__ (( __noinline__ )) void putc(uint8_t data) {
 #endif
 
 /* prototypes */
-void __attribute__ (( __noreturn__, __noinline__, __naked__ )) leave_bootloader(void);
+static void __attribute__ (( noreturn, noinline, naked )) leave_bootloader(void);
 
 /* we just support flash sizes <= 64kb, for code size reasons
  * if you need to program bigger devices, have a look at USBasploader:
@@ -145,10 +145,10 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
         timeout = 255;
     } else if (req->bRequest == USBASP_FUNC_CONNECT) {
         /* turn on led */
-        PORTD |= _BV(PD3);
+        PORTB |= _BV(PB1);
     } else if (req->bRequest == USBASP_FUNC_DISCONNECT) {
         /* turn off led */
-        PORTD &= ~_BV(PD3);
+        PORTB &= ~_BV(PB1);
         request_exit = 1;
     /* catch query for the devicecode, chip erase and eeprom byte requests */
     } else if (req->bRequest == USBASP_FUNC_TRANSMIT) {
@@ -263,7 +263,7 @@ uchar usbFunctionWrite(uchar *data, uchar len)
     }
 
     /* flash led on activity */
-    PORTC ^= _BV(PC4);
+    PINB = _BV(PB2);
 
     return (bytes_remaining == 0);
 }
@@ -284,10 +284,12 @@ uchar usbFunctionRead(uchar *data, uchar len)
     }
 
     /* flash led on activity */
-    PORTC ^= _BV(PC4);
+    PINB = _BV(PB2);
 
     return len;
 }
+
+static void (*jump_to_application)(void) = 0;
 
 void leave_bootloader(void)
 {
@@ -304,13 +306,11 @@ void leave_bootloader(void)
     USB_INTR_CFG = 0;
 
     /* reconfigure pins */
-    DDRC = 0;
-    DDRD = 0;
-    PORTC = 0;
-    PORTD = 0;
+    DDRB = 0;
+    PORTB = 0;
 
     /* start main program at address 0 */
-    asm volatile ("jmp 0");
+    jump_to_application();
 }
 
 int __attribute__ ((noreturn,OS_main)) main(void)
@@ -325,22 +325,16 @@ int __attribute__ ((noreturn,OS_main)) main(void)
     putc('b');
 #endif
 
-    uint8_t reset = MCUSR & ~_BV(PORF);
-
-    /* if we have not been reset externally, start application */
-    if (!(reset == _BV(EXTRF)) && pgm_read_byte_near((void *)0) != 0xff)
+    /* check if both buttons have been pressed */
+    PORTC = _BV(PC4) | _BV(PC5);
+    if (PINC & (_BV(PC4) | _BV(PC5)) != 0)
         leave_bootloader();
-
-    /* clear external reset flags */
-    MCUSR = 0;
 
     /* init exit request state */
     request_exit = 0;
 
     /* init led pins (led1 and led2) */
-    DDRC = _BV(PC4);
-    PORTC = _BV(PC4);
-    DDRD = _BV(PD3);
+    DDRB = _BV(PB1) | _BV(PB2);
 
     /* move interrupts to boot section */
     MCUCR = (1 << IVCE);
@@ -367,7 +361,7 @@ int __attribute__ ((noreturn,OS_main)) main(void)
 
         /* do some led blinking, so that it is visible that the bootloader is still running */
         if (delay == 0) {
-            PORTC ^= _BV(PC4);
+            PINB = _BV(PB2);
             if (timeout < 255)
                 timeout--;
         }
@@ -377,6 +371,4 @@ int __attribute__ ((noreturn,OS_main)) main(void)
             leave_bootloader();
         }
     }
-
-    leave_bootloader();
 }
