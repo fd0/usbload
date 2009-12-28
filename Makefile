@@ -59,7 +59,7 @@ $(TARGET): $(OBJECTS) $(TARGET).o
 .PHONY: install lock fuses-atmega168-unzap bootstrap
 
 # install: program-serial-$(TARGET) program-serial-eeprom-$(TARGET)
-install: program-isp-$(TARGET)
+install: program-isp-$(TARGET) lock
 
 lock:
 	$(AVRDUDE) $(AVRDUDE_FLAGS) -c $(ISP_PROG) -P $(ISP_DEV) -U lock:w:0x2f:m
