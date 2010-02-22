@@ -32,6 +32,16 @@
 #include "config.h"
 #include "usbdrv/usbdrv.c"
 
+/* check if MCUCR (avr5) or GICR (avr4) is used for moving the interrupts to
+ * the bootloader section */
+#if defined(__AVR_ATmega8__)
+#define _IVREG GICR
+#elif defined(__AVR_ATmega88__) || defined(__AVR_ATmega168__)
+#define _IVREG MCUCR
+#else
+#error "warning, _IVREG undefined, unknown cpu!"
+#endif
+
 /* USBasp requests, taken from the original USBasp sourcecode */
 #define USBASP_FUNC_CONNECT     1
 #define USBASP_FUNC_DISCONNECT  2
@@ -144,11 +154,11 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
         len = 1;
         timeout = 255;
     } else if (req->bRequest == USBASP_FUNC_CONNECT) {
-        /* turn on led */
-        PORTB |= _BV(PB1);
+        /* turn on green led */
+        PORTC |= _BV(PC0);
     } else if (req->bRequest == USBASP_FUNC_DISCONNECT) {
-        /* turn off led */
-        PORTB &= ~_BV(PB1);
+        /* turn off green led */
+        PORTC &= ~_BV(PC0);
         request_exit = 1;
     /* catch query for the devicecode, chip erase and eeprom byte requests */
     } else if (req->bRequest == USBASP_FUNC_TRANSMIT) {
@@ -262,8 +272,8 @@ uchar usbFunctionWrite(uchar *data, uchar len)
         }
     }
 
-    /* flash led on activity */
-    PINB = _BV(PB2);
+    /* flash red led on activity */
+    PORTC ^= _BV(PC1);
 
     return (bytes_remaining == 0);
 }
@@ -283,8 +293,8 @@ uchar usbFunctionRead(uchar *data, uchar len)
         flash_address.word++;
     }
 
-    /* flash led on activity */
-    PINB = _BV(PB2);
+    /* flash red led on activity */
+    PORTC ^= _BV(PC1);
 
     return len;
 }
@@ -296,8 +306,8 @@ void leave_bootloader(void)
 
     /* move interrupts to application section */
     cli();
-    MCUCR = (1 << IVCE);
-    MCUCR = 0;
+    _IVREG = (1 << IVCE);
+    _IVREG = 0;
 
     /* disconnect usb */
     usbDeviceDisconnect();
@@ -306,8 +316,8 @@ void leave_bootloader(void)
     USB_INTR_CFG = 0;
 
     /* reconfigure pins */
-    DDRB = 0;
-    PORTB = 0;
+    DDRC = 0;
+    PORTC = 0;
 
     /* start main program at address 0 */
     jump_to_application();
@@ -316,7 +326,6 @@ void leave_bootloader(void)
 int __attribute__ ((noreturn,OS_main)) main(void)
 {
     /* start bootloader */
-
 #ifdef DEBUG_UART
     /* init uart (115200 baud, at 20mhz) */
     UBRR0L = 10;
@@ -325,32 +334,32 @@ int __attribute__ ((noreturn,OS_main)) main(void)
     putc('b');
 #endif
 
-    /* check if both buttons have been pressed */
-    PORTC = _BV(PC4) | _BV(PC5);
-    if (PINC & (_BV(PC4) | _BV(PC5)) != 0)
+    /* check if jumper is set */
+    PORTC|= _BV(PC2);
+    if (PINC & _BV(PC2))
         leave_bootloader();
 
     /* init exit request state */
     request_exit = 0;
 
-    /* init led pins (led1 and led2) */
-    DDRB = _BV(PB1) | _BV(PB2);
-
     /* move interrupts to boot section */
-    MCUCR = (1 << IVCE);
-    MCUCR = (1 << IVSEL);
+    _IVREG = (1 << IVCE);
+    _IVREG = (1 << IVSEL);
 
-    /* enable interrupts */
-    sei();
+    /* init led pins (led1 and led2) */
+    DDRC = _BV(PC0) | _BV(PC1);
+
+    /* disconnect for ~150ms, so that the host re-enumerates this device */
+    usbDeviceDisconnect();
+    for (uint8_t i = 0; i < 38; i++)
+        _delay_loop_2(0);
+    usbDeviceConnect();
 
     /* initialize usb pins */
     usbInit();
 
-    /* disconnect for ~500ms, so that the host re-enumerates this device */
-    usbDeviceDisconnect();
-    for (uint8_t i = 0; i < 38; i++)
-        _delay_loop_2(0); /* 0 means 0x10000, 38*1/f*0x10000 =~ 498ms */
-    usbDeviceConnect();
+    /* enable interrupts */
+    sei();
 
     uint16_t delay;
     timeout = TIMEOUT;
@@ -361,12 +370,14 @@ int __attribute__ ((noreturn,OS_main)) main(void)
 
         /* do some led blinking, so that it is visible that the bootloader is still running */
         if (delay == 0) {
-            PINB = _BV(PB2);
+            /* blink red led */
+            PORTC ^= _BV(PC1);
             if (timeout < 255)
                 timeout--;
         }
 
-        if (request_exit || timeout == 0) {
+        /* leave bootloader if jumper is not set any more */
+        if ((PINC & _BV(PC2)) && request_exit || timeout == 0) {
             _delay_loop_2(0);
             leave_bootloader();
         }

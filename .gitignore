@@ -4,4 +4,7 @@
 /*.hex
 *.lst
 *.elf
+*.lss
 config.mk
+/usbload
+tags

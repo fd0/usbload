@@ -1,14 +1,27 @@
+/* Name: usbconfig.h
+ * Project: V-USB, virtual USB port for Atmel's(r) AVR(r) microcontrollers
+ * Author: Christian Starkjohann
+ * Creation Date: 2005-04-01
+ * Tabsize: 4
+ * Copyright: (c) 2005 by OBJECTIVE DEVELOPMENT Software GmbH
+ * License: GNU GPL v2 (see License.txt), GNU GPL v3 or proprietary (CommercialLicense.txt)
+ * This Revision: $Id: usbconfig-prototype.h 767 2009-08-22 11:39:22Z cs $
+ */
+
 #ifndef __usbconfig_h_included__
 #define __usbconfig_h_included__
 
 /*
 General Description:
-This file contains parts of the USB driver which can be configured and can or
-must be adapted to your hardware.
-
-Please note that the usbdrv contains a usbconfig-prototype.h file now. We
-recommend that you use that file as a template because it will always list
-the newest features and options.
+This file is an example configuration (with inline documentation) for the USB
+driver. It configures V-USB for USB D+ connected to Port D bit 2 (which is
+also hardware interrupt 0 on many devices) and USB D- to Port D bit 4. You may
+wire the lines to any other port, as long as D+ is also wired to INT0 (or any
+other hardware interrupt, as long as it is the highest level interrupt, see
+section at the end of this file).
++ To create your own usbconfig.h file, copy this file to your project's
++ firmware source directory) and rename it to "usbconfig.h".
++ Then edit it accordingly.
 */
 
 #include "config.h"
@@ -48,13 +61,13 @@ the newest features and options.
 
 /* ----------------------- Optional Hardware Config ------------------------ */
 
-#define USB_CFG_PULLUP_IOPORTNAME   C
+/* #define USB_CFG_PULLUP_IOPORTNAME   C */
 /* If you connect the 1.5k pullup resistor from D- to a port pin instead of
  * V+, you can connect and disconnect the device from firmware by calling
  * the macros usbDeviceConnect() and usbDeviceDisconnect() (see usbdrv.h).
  * This constant defines the port on which the pullup resistor is connected.
  */
-#define USB_CFG_PULLUP_BIT          3
+/* #define USB_CFG_PULLUP_BIT          3 */
 /* This constant defines the bit number in USB_CFG_PULLUP_IOPORT (defined
  * above) where the 1.5k pullup resistor is connected. See description
  * above for details.
@@ -102,7 +115,7 @@ the newest features and options.
  * interval. The value is in milliseconds and must not be less than 10 ms for
  * low speed devices.
  */
-#define USB_CFG_IS_SELF_POWERED         1
+#define USB_CFG_IS_SELF_POWERED         0
 /* Define this to 1 if the device has its own power supply. Set it to 0 if the
  * device is powered from the USB bus.
  */
@@ -203,8 +216,12 @@ the newest features and options.
 
 #define  USB_CFG_VENDOR_ID       0xc0, 0x16 /* = 0x16c0 = 5824 = voti.nl */
 /* USB vendor ID for the device, low byte first. If you have registered your
- * own Vendor ID, define it here. Otherwise you use obdev's free shared
- * VID/PID pair. Be sure to read USBID-License.txt for rules!
+ * own Vendor ID, define it here. Otherwise you may use one of obdev's free
+ * shared VID/PID pairs. Be sure to read USB-IDs-for-free.txt for rules!
+ * *** IMPORTANT NOTE ***
+ * This template uses obdev's shared VID/PID pair for Vendor Class devices
+ * with libusb: 0x16c0/0x5dc.  Use this VID/PID pair ONLY if you understand
+ * the implications!
  */
 #define  USB_CFG_DEVICE_ID       0xdc, 0x05 /* = 0x05dc = 1500 */
 /* This is the ID of the product, low byte first. It is interpreted in the
@@ -220,7 +237,7 @@ the newest features and options.
 #define USB_CFG_DEVICE_VERSION  0x00, 0x01
 /* Version number of the device: Minor number first, then major number.
  */
-#define	USB_CFG_VENDOR_NAME     'w', 'w', 'w', '.', 'f', 'i', 's', 'c', 'h', 'l', '.', 'd', 'e'
+#define USB_CFG_VENDOR_NAME     'w', 'w', 'w', '.', 'f', 'i', 's', 'c', 'h', 'l', '.', 'd', 'e'
 #define USB_CFG_VENDOR_NAME_LEN 13
 /* These two values define the vendor name returned by the USB device. The name
  * must be given as a list of characters under single quotes. The characters
@@ -230,14 +247,14 @@ the newest features and options.
  * obdev's free shared VID/PID pair. See the file USB-IDs-for-free.txt for
  * details.
  */
-#define	USB_CFG_DEVICE_NAME		'U', 'S', 'B', 'a', 's', 'p'
-#define	USB_CFG_DEVICE_NAME_LEN	6
+#define USB_CFG_DEVICE_NAME     'U', 'S', 'B', 'a', 's', 'p'
+#define USB_CFG_DEVICE_NAME_LEN 6
 /* Same as above for the device name. If you don't want a device name, undefine
  * the macros. See the file USB-IDs-for-free.txt before you assign a name if
  * you use a shared VID/PID.
  */
-/*#define USB_CFG_SERIAL_NUMBER   'N', 'o', 'n', 'e' */
-/*#define USB_CFG_SERIAL_NUMBER_LEN   0 */
+#define USB_CFG_SERIAL_NUMBER   'B', 'O', 'O', 'T'
+#define USB_CFG_SERIAL_NUMBER_LEN   4
 /* Same as above for the serial number. If you don't want a serial number,
  * undefine the macros.
  * It may be useful to provide the serial number through other means than at
@@ -349,6 +366,6 @@ the newest features and options.
 #define USB_INTR_ENABLE_BIT     INT1
 /* #define USB_INTR_PENDING        GIFR */
 #define USB_INTR_PENDING_BIT    INTF1
-#define USB_INTR_VECTOR         SIG_INTERRUPT1
+#define USB_INTR_VECTOR         INT1_vect
 
 #endif /* __usbconfig_h_included__ */
